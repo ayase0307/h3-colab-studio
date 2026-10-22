@@ -27,5 +27,5 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | A character turns into a copy of the other one in a short stretch after the second sampling | Two references, similar poses, partially re-noised latent | Re-run with `--refine-steps 3` (it fixed the one case observed, a single sample); check with `tools/identity_probe.py` (see `docs/benchmarks.md`); or pick another seed |
-| Static opening (first 0.8 s) | The prompt's first shot is a set-up, not contact | Start Shot 1 with the first contact inside 0.5 s |
-| Image hair/clothes drift from the reference | Long appearance text fights the reference image | Do not restate appearance in shots; keep it only in `subject_definitions` |
+| Static opening (first 0.8 s; seen once, in the five-part B15 clip) | Likely a set-up first shot rather than contact | Start Shot 1 with the first contact inside 0.5 s |
+| Image hair/clothes drift from the reference | Long appearance text fights the reference image (advice from h3-video-prompting, not retested here) | Do not restate appearance in shots; keep it only in `subject_definitions` |
