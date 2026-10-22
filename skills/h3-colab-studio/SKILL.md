@@ -39,7 +39,7 @@ Rules that matter:
 4. Never stack LoRAs. Omni is already 8-step distilled.
 5. **Reference images matter more than most settings.** Use images with clearly different silhouettes and colours (in our test, a blond braid + orange visor against white spiky hair + horns). With look-alike or weak references the draft itself can draw two fighters as the same person; the second sampling cannot fix that. Check the draft stills (`omni_hd` keeps `<id>.draft.mp4`).
 6. For `omni_hd`: `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
-7. `ref2va` / `ref2va_hd` use the Ref2VA weights from the download_ref4 box in cell ①. In the one combat test they gave cleaner frames but lower motion energy than Omni (18.6 / 16.4 vs 24.7). Use when clean identity matters more than impact (one sample each). About 2-3x the time.
+7. `ref2va` / `ref2va_hd` use the Ref2VA weights from the download_ref4 box in cell ①. In the one combat test they gave cleaner frames but lower motion energy than Omni (18.6 / 16.4 vs 24.7). Use when clean identity matters more than impact (one sample each). About 2-3x the time. `ref4` (Ref2VA + 4-step turbo LoRA, single pass) also accepts `--size p720`: one 15 s run at 1280x704 took 494 s cold, against 1,817 s for `ref2va`, with similar motion energy but rougher frames by eye (one sample; footnote ⁵ in `references/modes-and-timings.md`).
 
 ## 2. Submit, wait, verify
 

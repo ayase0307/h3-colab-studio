@@ -1,0 +1,23 @@
+{
+ "id": "r3-part1-ref4-p720",
+ "mode": "ref4",
+ "draft_size": "1280x704",
+ "seconds": 15.1,
+ "seed": 20261019,
+ "total_s": 494.47,
+ "stages_s": {
+  "load+draft": 441.9,
+  "decode draft": 0.0,
+  "up-res": 0.0,
+  "refine": 0.0,
+  "final decode+mux": 52.3
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 21.6,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 17.68
+ }
+}
