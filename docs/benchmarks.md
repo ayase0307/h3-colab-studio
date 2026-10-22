@@ -10,7 +10,7 @@ Read the numbers with these caveats: one seed per cell, one pair of characters, 
 |---|---|
 | GPU | Colab A100 40 GB (about 39.5 GiB visible), 83.5 GB system RAM |
 | Fresh-VM install (cell 1, 62 GB of weights) | about 6-7 minutes |
-| Colab compute units, whole session | 376.67 -> 369.64 = **7.03 CU** in about 88 minutes (includes install, waiting, 8 renders) |
+| Colab compute units, whole session | 376.67 -> 369.64 = **7.03 CU** in about 88 minutes (includes install, waiting, 7 renders) |
 | Average burn | 4.8 CU/h measured, the Colab panel states 5.3 CU/h |
 | Per-job CU | 5 s about 0.18, 10 s about 0.5, 15 s about 0.88 (measured 0.87-0.89 for each 15 s job) |
 
@@ -22,9 +22,11 @@ Draft = Omni 8 steps at 832x480. `omni_hd` = draft + second sampling (last 4 of 
 
 | Clip | Draft only (`omni`) | Draft only (`ref4`) | `omni_hd` total | of which second sampling |
 |---|---:|---:|---:|---:|
-| 5 s | 41 s | 27 s | 133 s (warm), 355 s (cold, first job) | 54 s |
-| 10 s | about 115 s (derived) | 57 s | 378 s | 180 s |
-| 15 s | 171 s | not run | 656-681 s | 354-361 s |
+| 5 s | 41 s ¹ | 27 s ¹ | 133 s ¹ warm, 355 s cold ² | 54 s ¹ |
+| 10 s | about 115 s ³ | 57 s ¹ | 378 s | 180 s |
+| 15 s | 171 s ¹ | not run | 656-681 s | 354-361 s |
+
+¹ measured in an earlier single-reference session (one reference image, different prompts); ² the first job of this session, including model loading; ³ derived from the stage times of the `omni_hd` jobs. The per-job CU figures: 0.88 is measured (0.87-0.89 for each 15 s job), the 5 s and 10 s values are computed as 4.8 CU/h x seconds.
 
 Where the time goes in a 15 s `omni_hd` job (job `s6`, 665 s):
 
@@ -71,12 +73,14 @@ Written with `h3-video-prompting` (origin/main) five-part shots: every `[Shot N]
 
 | Job | Clip | Shots | Prompt chars / words (detailed_description words) | Total | Energy | End / mid | Identity probe |
 |---|---|---:|---|---:|---:|---:|---|
-| B5 | 5.2 s | 3 | 5,630 / 940 (620) | 355 s cold | 20.0 | 100% | ok |
+| B5 | 5.2 s | 3 | 5,630 / 940 (620) | 355 s cold | 20.0 | 100% | refine ok; the draft already merges both fighters into Kai in the last wide shot (seen by eye, about 1.2 s) |
 | B10 | 10.1 s | 5 | 7,145 / 1,200 (870) | 378 s | 20.5 | 131% | ok |
 | B15 five-part | 15.1 s | 6 | 8,986 / 1,525 (1,192) | 681 s | 22.2 | 118% | ok |
 | B15 one-line | 15.1 s | 6 | 4,608 / 762 (428) | 656 s | 22.4 | 90% | ok |
 
 Shot-length note: B5's three shots (1.7-1.9 s) and B10's first and last (1.7-1.8 s) are below the skill's 2 s guideline on purpose, to keep the energy high; the linter accepts them once the last shot is under 30% of the clip.
+
+The identity probe compares a draft with its refined clip, so it cannot see a fault that is already in the draft. A draft-only red-share check marks low-Vex seconds in A2 (0, 1, 3 s) and B15 (0, 11 s), but those may be shots without Vex; only B5's last shot was confirmed by eye.
 
 ## 5. Prompt-length unlock: what happened
 

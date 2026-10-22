@@ -19,7 +19,7 @@
   <img alt="MiniMax H3" src="https://img.shields.io/badge/MiniMax-H3%20%2F%20FastH3%20Omni-ff5a36">
   <img alt="Agent skill" src="https://img.shields.io/badge/agent-skill-8A2BE2">
   <img alt="Tests" src="https://img.shields.io/badge/tests-5%20scripts%20passing-2ea44f">
-  <img alt="Measured" src="https://img.shields.io/badge/%E5%AF%A6%E6%B8%AC-8%20%E6%94%AF%20%C2%B7%207.0%20CU-0a7">
+  <img alt="Measured" src="https://img.shields.io/badge/%E5%AF%A6%E6%B8%AC-7%20%E6%94%AF%20%C2%B7%207.0%20CU-0a7">
 </p>
 
 ---
@@ -33,7 +33,7 @@
     <td align="center" width="50%">
       <img src="assets/gifs/scrapyard-5s.gif" alt="5 秒廢料場打鬥：兩人躍起、油桶爆開、電纜放電"><br>
       <b>5 秒</b> · 3 鏡 · <a href="assets/videos/scrapyard-5s-720p.mp4">MP4</a> · <a href="benchmarks/prompts/b5-scrapyard-5s.txt">提示詞</a><br>
-      <sub>暖機約 133 秒（這支是第一件，冷啟動 355 秒）· 0.18 CU</sub>
+      <sub>只顯示前 3.4 秒 · 這支實際 355 秒（冷啟動；暖機 133 秒 ¹）· 約 0.18 CU ³</sub>
     </td>
     <td align="center" width="50%">
       <img src="assets/gifs/scrapyard-10s.gif" alt="10 秒廢料場打鬥：貨櫃、橫跨巷道的鎖鏈與火焰"><br>
@@ -108,13 +108,15 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（角色設計沿用公開的 S
 
 ## 在 Colab A100（40 GB）上的實測
 
-一個工作階段、8 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。
+一個工作階段、7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。
 
 | 長度 | 只出草稿（`omni`） | `omni_hd`（草稿＋720p） | 運算單位（`omni_hd`） |
 |---|---:|---:|---:|
-| 5 秒 | 41 秒 | 133 秒 | 0.18 |
-| 10 秒 | 約 115 秒 | 378 秒 | 0.5 |
-| 15 秒 | 171 秒 | 656–681 秒 | 0.88 |
+| 5 秒 | 41 秒 ¹ | 133 秒 ¹（冷啟動 355 秒 ²） | 0.18 ³ |
+| 10 秒 | 約 115 秒 ⁴ | 378 秒 | 0.5 ³ |
+| 15 秒 | 171 秒 ¹ | 656–681 秒 | 0.88 ⁵ |
+
+<sub>¹ 取自先前單一參考圖的工作階段（一張參考圖、不同提示詞），不是下面兩張參考圖的這輪。² 這輪第一件，含模型載入。³ 計算值：4.8 CU/小時 × 秒數。⁴ 由 `omni_hd` 工作的階段時間推算。⁵ 實際餘額差（每件 0.87–0.89）。</sub>
 
 二次取樣佔 15 秒工作的 54%。`--refine-steps 3` 可以把 15 秒工作從 665 秒降到 582 秒。
 
@@ -129,6 +131,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（角色設計沿用公開的 S
 ## 老實說的限制
 
 - **二次取樣可能讓身份滑掉。** 有一支 15 秒影片裡，第二位格鬥家有大約一秒變成第一位的複製品，但草稿是對的。`--refine-steps 3` 在那支影片裡解決了（[證據](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-and-the-fix)），但那只是一個樣本。
+- **身份也可能在草稿階段就合併。** 5 秒那支的最後一鏡（廣角、兩人都很小），480p 草稿裡兩個人影就已經都畫成 Kai，二次取樣只是繼承它。上面的 GIF 在那一鏡之前就停了。粗略的紅色像素檢查在其他草稿也標出少數 Vex 偏少的秒數，但那可能只是沒有 Vex 的鏡頭，未經驗證。
 - **30 秒的接點是剪接，不是延續。** 兩段獨立的 15 秒渲染：接縫檢查顯示接點是近乎靜止的一格（只有周圍動作的 24%）。
 - **長提示詞沒有傷害，也沒有明顯幫助。** 四份提示詞最長 1,525 字、8,986 字元，都完整渲染（ComfyUI 的分詞器沒有截斷）；hosted API 的 7,000 字元上限，是它們只能在本機跑的原因。每格只有一個 seed，所以結論不確定。
 - 每台新的 Colab 虛擬機都需要**真人點一次 Google Drive 授權**（OAuth 彈窗，任何 agent 都無法代點），外加 6–7 分鐘安裝。

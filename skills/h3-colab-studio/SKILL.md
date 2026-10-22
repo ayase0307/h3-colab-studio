@@ -25,9 +25,9 @@ Queue root is found automatically (`G:/我的雲端硬碟/h3-queue`, `~/Google D
 
 | Goal | `--mode` | Refs | Time (A100 40 GB, warm) |
 |---|---|---|---|
-| Fast draft you can re-roll by seed | `omni` + `--size p480` | 1-9 images | 5 s: 41 s, 15 s: 171 s |
-| Final 720p, same seed as the chosen draft | `omni_hd` (size defaults to `p480`) | 1-9 images | 5 s: 133 s, 10 s: 333 s, 15 s: 615 s |
-| Faster draft, **cannot** be refined | `ref4` | 1-9 images | 5 s: 27 s, 10 s: 57 s |
+| Fast draft you can re-roll by seed | `omni` + `--size p480` | 1-9 images | 5 s: 41 s, 15 s: 171 s (earlier 1-reference session) |
+| Final 720p, same seed as the chosen draft | `omni_hd` (size defaults to `p480`) | 1-9 images | 5 s: 133 s warm (355 s cold), 10 s: 378 s, 15 s: 656-681 s |
+| Faster draft, **cannot** be refined | `ref4` | 1-9 images | 5 s: 27 s, 10 s: 57 s (earlier 1-reference session) |
 | No reference images | `turbo`, `turbo4`, `quality` | optional first/last frame | 5 s: 130 s |
 
 Rules that matter:

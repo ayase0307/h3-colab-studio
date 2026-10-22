@@ -19,7 +19,7 @@
   <img alt="MiniMax H3" src="https://img.shields.io/badge/MiniMax-H3%20%2F%20FastH3%20Omni-ff5a36">
   <img alt="Agent skill" src="https://img.shields.io/badge/agent-skill-8A2BE2">
   <img alt="Tests" src="https://img.shields.io/badge/tests-5%20scripts%20passing-2ea44f">
-  <img alt="Measured" src="https://img.shields.io/badge/measured-8%20renders%20%C2%B7%207.0%20CU-0a7">
+  <img alt="Measured" src="https://img.shields.io/badge/measured-7%20renders%20%C2%B7%207.0%20CU-0a7">
 </p>
 
 ---
@@ -33,7 +33,7 @@ All clips were rendered by this repo on one Colab A100, from two reference image
     <td align="center" width="50%">
       <img src="assets/gifs/scrapyard-5s.gif" alt="5 s scrapyard fight: two fighters leap, an oil drum bursts, a power cable arcs"><br>
       <b>5 s</b> · 3 shots · <a href="assets/videos/scrapyard-5s-720p.mp4">MP4</a> · <a href="benchmarks/prompts/b5-scrapyard-5s.txt">prompt</a><br>
-      <sub>133 s warm (355 s as rendered here: first job, cold) · 0.18 CU</sub>
+      <sub>first 3.4 s shown · 355 s as rendered (cold; 133 s warm ¹) · about 0.18 CU ³</sub>
     </td>
     <td align="center" width="50%">
       <img src="assets/gifs/scrapyard-10s.gif" alt="10 s scrapyard fight: containers, a chain across the lane, fire"><br>
@@ -108,13 +108,15 @@ The second pass is the same distilled model run on only the tail of its own 8-st
 
 ## Measured on a Colab A100 (40 GB)
 
-One session, 8 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md).
+One session, 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md).
 
 | Clip | Draft only (`omni`) | `omni_hd` (draft + 720p) | Compute units (`omni_hd`) |
 |---|---:|---:|---:|
-| 5 s | 41 s | 133 s | 0.18 |
-| 10 s | about 115 s | 378 s | 0.5 |
-| 15 s | 171 s | 656-681 s | 0.88 |
+| 5 s | 41 s ¹ | 133 s ¹ (355 s cold ²) | 0.18 ³ |
+| 10 s | about 115 s ⁴ | 378 s | 0.5 ³ |
+| 15 s | 171 s ¹ | 656-681 s | 0.88 ⁵ |
+
+<sub>¹ measured in an earlier single-reference session (one reference image, different prompts), not in the two-reference run below. ² the first job of the two-reference session, including model loading. ³ computed: 4.8 CU/h x seconds. ⁴ derived from the stage times of `omni_hd` jobs. ⁵ measured balance deltas (0.87-0.89 per job).</sub>
 
 The second sampling is 54% of a 15 s job. `--refine-steps 3` cuts a 15 s job from 665 s to 582 s.
 
@@ -129,6 +131,7 @@ The second sampling is 54% of a 15 s job. `--refine-steps 3` cuts a 15 s job fro
 ## Honest limits
 
 - **Identity can slip in the second sampling.** In one 15 s clip the second fighter turned into a copy of the first for about a second; the draft was correct. `--refine-steps 3` fixed it in that clip ([evidence](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-and-the-fix)), but that is one sample.
+- **Identity can also merge in the draft.** In the 5 s clip's last shot (a wide shot, both fighters small), both figures are drawn as Kai already in the 480p draft; the second sampling inherits it. The GIF above stops before that shot. A rough red-pixel check marks a few other low-Vex seconds in other drafts, but those may simply be shots without Vex; not verified.
 - **The 30 s join is a cut, not a continuation.** Two independent 15 s renders: the seam check reports a near-still frame at the join (24% of the surrounding motion).
 - **Long prompts did not hurt, and did not clearly help.** Four prompts up to 1,525 words and 8,986 characters rendered in full (no truncation in ComfyUI's tokenizer); the hosted API's 7,000-character cap is why they are local-only. One seed per cell, so inconclusive.
 - Every new Colab VM needs one **Google Drive authorization click by a human** (an OAuth popup no agent can open), plus 6-7 minutes of install.

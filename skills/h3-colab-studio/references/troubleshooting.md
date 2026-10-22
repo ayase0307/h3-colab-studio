@@ -27,5 +27,6 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | A character turns into a copy of the other one in a short stretch after the second sampling | Two references, similar poses, partially re-noised latent | Re-run with `--refine-steps 3` (it fixed the one case observed, a single sample); check with `tools/identity_probe.py` (see `docs/benchmarks.md`); or pick another seed |
+| Both fighters drawn as the first reference in a wide shot (seen in the draft of the 5 s clip's last 1.2 s) | The characters are small in frame, so the reference signal is weak | Open the shot up: closer framing or fewer simultaneous bodies; compare the draft's stills before refining |
 | Static opening (first 0.8 s; seen once, in the five-part B15 clip) | Likely a set-up first shot rather than contact | Start Shot 1 with the first contact inside 0.5 s |
 | Image hair/clothes drift from the reference | Long appearance text fights the reference image (advice from h3-video-prompting, not retested here) | Do not restate appearance in shots; keep it only in `subject_definitions` |
