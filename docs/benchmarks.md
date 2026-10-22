@@ -12,6 +12,7 @@ Read the numbers with these caveats: one seed per cell, one pair of characters, 
 | Fresh-VM install (cell 1, 62 GB of weights) | about 6-7 minutes |
 | Colab compute units, session 1 | 376.67 -> 369.64 = **7.03 CU** in about 88 minutes (includes install, waiting, 7 renders) |
 | Colab compute units, session 2 (re-run with the original references) | 369.64 -> 367.43 = **2.21 CU** in about 31 minutes (fresh VM install, 2 renders); log in `benchmarks/cu-log-2.jsonl` |
+| Colab compute units, session 3 (non-distilled control `r1`) | 367.43 -> 363.9 = about **3.5 CU** in about 43 minutes (fresh VM install about 5 min, one 30 min render); balance read from the Resources panel, not logged in `cu-log` |
 | Average burn | 4.8 CU/h measured, the Colab panel states 5.3 CU/h |
 | Per-job CU | 5 s about 0.18, 10 s about 0.5, 15 s about 0.88 (measured 0.87-0.89 for each 15 s job) |
 
@@ -64,14 +65,30 @@ Timings with the original references on a fresh VM: part 1 715 s (includes model
 
 1. **Prompts: identical.** Not the cause.
 2. **Reference images were the largest factor.** With the two images I had generated from the text, the 480p *draft* drew both fighters as Kai in the shot at about 4.7-5.4 s (the two fighters colliding through the fire wall), and the second sampling inherited it. With the original images, the same seed and prompt keeps Kai (blond braid, orange visor) and Vex (white spiky hair, orange outfit) distinct in that shot and in the last frame (checked by eye at 4.7, 5.0, 5.4 and 14.78 s). The set, camera ideas (top-down hangar, the window onto Earth, cables) also match the showcase far more closely.
-3. **The showcase was not rendered by the same pipeline.** Home-machine inspection (read-only) shows the showcase pipeline is FreeVideo, a ComfyUI-based local app. Its quality levels are: `light` = 8 first-pass steps + 3 refine steps (first pass at half size, learned latent up-scale), `medium` = the same with a larger first pass, `high` = **16 steps, one pass, with EasyCache-AV**, `max` = 20 steps. The showcase clip is the `high` run at 1280x704 (the two 15 s anime jobs on that machine were first run at `light`, 960x544). This repo runs an 8-step distilled model (FastH3 Omni) then a short second sampling, so the two are not the same recipe and cannot be expected to match shot for shot.
-4. **What this does not explain:** how much of the remaining difference is the model/step count versus other settings (for example a LoRA). The home machine has combat, camera-motion and speed LoRAs installed, but the saved job specs list none for these clips, so I cannot say they were used. A fair test would render the same references at the same resolution with a non-distilled 16-step Ref2VA; that was not run.
+3. **The showcase was not rendered by the same pipeline, and that pipeline is not the official H3 base either.** Home-machine inspection (read-only) shows the showcase pipeline is FreeVideo (FlashML-org/FreeVideo, Apache-2.0), a ComfyUI-based local app. Correction: an earlier note here and in chat called its model "the official H3 base". It is not. FreeVideo's README says it is built on OpenVDN's 8-step **VDN-H3** model (Video DeltaNet: a linear-attention branch plus two small LoRA adapters on top of MiniMax H3; arXiv 2609.20744). The `models/vdn/h3-base` path in the job record is VDN's own folder name. So the showcase comes from a distilled/accelerated model family too, not from a plain non-distilled H3. What the saved job record shows (unchanged): quality level `high` = 16 steps, one pass, EasyCache-AV, SageAttention2, nvfp4_awq text encoder, no LoRA listed, 1280x704. Its other levels: `light` = 8 first-pass steps + 3 refine steps (half-size first pass, learned latent up-scale), `medium` = the same with a larger first pass, `max` = 20 steps (the two 15 s anime jobs on that machine were first run at `light`, 960x544). Not confirmed: whether the 16 `high` steps run on the VDN weights as such (I did not read FreeVideo's engine code). This repo runs FastH3 Omni (8-step distilled) then a short second sampling, so the recipes differ and cannot be expected to match shot for shot.
+4. **What this does not explain:** how much of the remaining difference is the model, the step count or other settings (for example a LoRA). The home machine has combat, camera-motion and speed LoRAs installed, but the saved job specs list none for these clips, so I cannot say they were used. The control run in the next section (non-distilled Ref2VA, same references) rules out one explanation: it did not close the motion gap.
 5. **Smaller visible gap:** the showcase opens with a contact flash at 0.6 s; ours opens with the two fighters still airborne at that moment. Part 2's ending is weaker (81% vs 93%).
 6. **A prompt/reference mismatch exists in the original too:** the prompt says Vex wears red, the original image shows orange; the results follow the image.
 
 Seam check (`seam_check.py`) on the joined 30 s with the original references: **WARN**, the seam frame differs by 9.4 against a neighbourhood median of 14.7 (64%): a small hitch a viewer may notice. With my generated references it was a hard **FAIL** (3.4 vs 14.4, 24%). The two segments are independent generations with no hand-off frame, so a cut is expected either way.
 
 Prompt linter (`validate_prompt.py`) on the shipped examples: 0 FAIL, but both exceed its 820-word budget (1,207 and 1,135 words), as do all of our long prompts.
+
+### Control run: non-distilled Ref2VA, single pass (`r1`)
+
+To test the "Omni gave up quality for speed" suspicion, part 1 was rendered once with the official non-distilled Ref2VA (Comfy-Org `minimax_h3_ref2va_pruned_int8_convrot`, INT8 text encoder, no LoRA, no sigma-shift node, `BasicGuider`, `res_multistep` + `simple`, **20 steps**, the official ComfyUI r2v template's defaults), one pass at **1280x704**, 15 s, the original references, the same prompt, seed 20261019 (the showcase seed). This used an experimental mode (`ref2va`) added after this commit; it is not published in this repo yet.
+
+| Run | Motion energy | End/mid | Time | Notes |
+|---|---:|---:|---:|---|
+| Omni + second sampling (`o1`, original refs) | 24.7 | 93% | 715 s incl. model loading | busier, softer frames |
+| **Official Ref2VA, 20 steps, one pass (`r1`)** | **18.6** | **100%** | **1,817 s** (sampling 1,670 s) | cleaner frames, steady identities |
+| Showcase (FreeVideo `high`) | 28.2 | 96% | not measured | different model family (see above) |
+
+- It fit an A100 40 GB at 1280x704 x 362 frames (no out-of-memory error). About 2.4 compute units for the render, computed as 4.8 CU/h x time; the whole session including install used about 3.5 (balance 367.43 to 363.9).
+- Looking at the contact sheet (my reading of one sample, not a measurement): the two fighters and the set stay consistent across cuts, edges are cleaner, and the explosions are calmer. But the motion energy is about a quarter **lower** than Omni's. Removing the distillation made the picture tidier, not more dynamic, so the missing impact in our clip is probably not caused by Omni's speed-up alone.
+- Not run: a non-distilled draft plus second sampling, and the same test on the FreeVideo/VDN-H3 model itself.
+
+![part 1, 1.5 s per tile: r1 official Ref2VA 20 steps (top two rows) vs Omni with second sampling (bottom two rows)](../assets/stills/part1-r1-vs-omni.jpg)
 
 ### Identity loss at the end of part 1 (with my generated references), and the refine-3 fix
 
@@ -119,5 +136,6 @@ The reference images of Kai and Vex are not in the repo (they follow a public Se
 
 - A second seed for any cell; other character pairs; real-world (non-anime) subjects.
 - G4 (96 GB) or H100; resolutions above 1280x736.
+- A non-distilled draft plus second sampling; the FreeVideo/VDN-H3 model run on the same references; the Singularity community fine-tune.
 - Lip-sync and dialogue; only audio presence and level were checked.
 - A human blind comparison of draft vs refined; the detail comparison is by eye.
