@@ -35,6 +35,7 @@ Rules that matter:
 2. `ref_N` maps to `<Picture N>` in the prompt. Numbers must start at 1 and be contiguous.
 3. `omni_hd` renders 1280x736 and crops to 1280x720 (720 is not on H3's 32-pixel grid).
 4. Never stack LoRAs. Omni is already 8-step distilled.
+5. `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
 
 ## 2. Submit, wait, verify
 
@@ -53,6 +54,8 @@ Read `references/modes-and-timings.md` for stage timings, and `references/protoc
 ## 3. Verify like you mean it
 
 `verify` fails (exit 1) if the MP4 size differs from the marker, there is no audio track, or motion is near zero. Then **look at the stills** (`<name>_f0..f2.png`) - the checks cannot tell you the face is right. For fights also run the combat skill's `scripts/measure_motion.py` (end-over-mid >= 60%).
+
+For multi-character `omni_hd` clips also run `tools/identity_probe.py draft.mp4 final.mp4` if the repo is available (it compares a character's colour presence in the draft and the refined clip).
 
 Typical failure messages (they name the ComfyUI node):
 - `Omni 模式至少需要一張參考圖片` / `參考圖模式...至少需要` - a reference mode got no `--ref`.
