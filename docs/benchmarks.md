@@ -1,6 +1,6 @@
 # Benchmarks and test record
 
-Everything below was measured on 2026-10-22 on one Colab Pro A100 40 GB VM, ComfyUI `ce42de5f`, INT8 FastH3 Omni + INT8 text encoder, 24 fps, reference images only (two characters). Raw per-job JSON is in [`benchmarks/records/`](../benchmarks/records), prompts in [`benchmarks/prompts/`](../benchmarks/prompts), the compute-unit log in [`benchmarks/cu-log.jsonl`](../benchmarks/cu-log.jsonl) and [`benchmarks/cu-log-4.jsonl`](../benchmarks/cu-log-4.jsonl) (session 4) and [`benchmarks/cu-log-5.jsonl`](../benchmarks/cu-log-5.jsonl) (session 5).
+Everything below was measured on 2026-10-22 on one Colab Pro A100 40 GB VM, ComfyUI `ce42de5f`, INT8 FastH3 Omni + INT8 text encoder, 24 fps, reference images only (two characters). Raw per-job JSON is in [`benchmarks/records/`](../benchmarks/records), prompts in [`benchmarks/prompts/`](../benchmarks/prompts), the compute-unit log in [`benchmarks/cu-log.jsonl`](../benchmarks/cu-log.jsonl) and [`benchmarks/cu-log-4.jsonl`](../benchmarks/cu-log-4.jsonl) (session 4) and [`benchmarks/cu-log-5.jsonl`](../benchmarks/cu-log-5.jsonl) (session 5) and [`benchmarks/cu-log-6.jsonl`](../benchmarks/cu-log-6.jsonl) (session 6).
 
 Read the numbers with these caveats: one seed per cell, one pair of characters, motion and identity scored by simple scripts plus my own eyes. The first job after any model change includes 1-3 minutes of model loading; that is labelled "cold" where it applies.
 
@@ -15,6 +15,7 @@ Read the numbers with these caveats: one seed per cell, one pair of characters, 
 | Colab compute units, session 3 (non-distilled control `r1`) | 367.43 -> 363.9 = about **3.5 CU** in about 43 minutes (fresh VM install about 5 min, one 30 min render); balance read from the Resources panel, not logged in `cu-log` |
 | Colab compute units, session 4 (non-distilled draft + second sampling `r2`) | 363.52 -> 360.87 = **2.65 CU** in about 27 minutes after install (one 23.5 min render); log in `benchmarks/cu-log-4.jsonl` |
 | Colab compute units, session 5 (4-step turbo single pass `r3`) | 360.87 -> 359.54 = **1.33 CU** in about 9.9 min after install (one 8.2 min render); log in `benchmarks/cu-log-5.jsonl`. That is about 8 CU/h, above the panel's 5.3, so treat this single coarse reading with care |
+| Colab compute units, session 6 (4-step turbo + SigmaShift 12/3 `r4`) | 359.03 -> 358.14 = **0.89 CU** in about 10.7 min after install (one 8.5 min render); log in `benchmarks/cu-log-6.jsonl`. That is about 5 CU/h, close to the panel's 5.3 |
 | Average burn | 4.8 CU/h measured, the Colab panel states 5.3 CU/h |
 | Per-job CU | 5 s about 0.18, 10 s about 0.5, 15 s about 0.88 (measured 0.87-0.89 for each 15 s job) |
 
@@ -88,6 +89,7 @@ To test the "Omni gave up quality for speed" suspicion, part 1 was rendered once
 | **Official Ref2VA, 20 steps, one pass (`r1`)** | **18.6** | **100%** | **1,817 s cold** (sampling 1,670 s) | cleaner frames, steady identities |
 | Official Ref2VA, 20-step draft + last 8 steps at 720p (`r2`) | 16.4 | 128% | 1,412 s cold (second sampling 729 s) | clean frames, two distinct fighters |
 | Ref2VA + 4-step turbo LoRA, one pass at 1280x704 (`r3`, `--mode ref4 --size p720`) | 17.7 | 98% | 494 s cold (sampling 348 s) | rougher frames by eye (one sample) |
+| Same as `r3` plus SigmaShift 12/3 (`r4`, `--mode ref4 --size p720 --shift`) | 17.7 | 98% | 511 s, fresh VM (sampling 354 s) | bit-identical to `r3` (same video and audio streams) |
 | Showcase (FreeVideo `high`) | 28.2 | 96% | not measured | different model family (see above) |
 
 - It fit an A100 40 GB at 1280x704 x 362 frames (no out-of-memory error). About 2.4 compute units for the render, computed as 4.8 CU/h x time; the whole session including install used about 3.5 (balance 367.43 to 363.9).
@@ -102,6 +104,9 @@ To test the "Omni gave up quality for speed" suspicion, part 1 was rendered once
 - **Time:** 494 s against 1,817 s for `r1` (about 3.7 times faster) and 1,412 s for `r2`, all cold runs on fresh VMs. The speed gain is real for these runs; it says nothing about a warm steady state.
 - **By eye** (one sample, three stills): the frames are rougher than `r1` and `r2`, with shimmering, hatched texture and smearing on both fighters, plus heavy motion blur. The palette is darker and more cinematic, and the set reads as a corridor with a window rather than the cargo bay of `r1` and `r2`. The identities stay distinct (blond hair with orange visor against white spiky hair).
 - **Reading:** a 4-step single pass ran much faster than `r1` at similar motion energy, but it looked noticeably rougher. One seed, one sample, and no other step counts were run, so this does not show how the turbo path behaves on other prompts or seeds.
+- **`r4` (`ref4`, `p720`, `--shift`: the same run as `r3` with the explicit MiniMaxH3SigmaShift node, 12 and 3, after the 4-step LoRA):** 510.5 s on a fresh VM (conditioning 100.5, sampling 353.7, final decode 36.1, mux and save 16.2). Output 1280x704, 15.08 s, audio -14.0 dB, 21.6 MB. The graph embedded in the MP4 metadata contains the shift node (`r3`'s does not), so the node was in the pipeline.
+- **Finding:** the video and audio streams of `r4` are bit-identical to `r3` (same stream MD5), and every motion figure matches (overall 17.68, end/mid 98%, longest lull 0.12 s, peak 35, motion_mean_ydif 17.628). With this model path the 12/3 shift therefore changed nothing. The most likely reason is that the pipeline already uses 12/3 by default, which I have not verified. So the shift does not explain why `r3` looks rougher than `r1` and `r2`.
+- **Caveat:** one seed, and only shift 12/3 was tested. By eye the frames are still rougher than `r1` and `r2`, as in `r3`. Once Colab gave an L4 instead of an A100 and cell 1 refused to run; a later retry got an A100.
 
 ![part 1, 1.5 s per tile: r1 official Ref2VA 20 steps (top two rows) vs Omni with second sampling (bottom two rows)](../assets/stills/part1-r1-vs-omni.jpg)
 
@@ -154,5 +159,6 @@ The reference images of Kai and Vex are not in the repo (they follow a public Se
 - ~~A non-distilled draft plus second sampling~~ (one run, `r2`); the FreeVideo/VDN-H3 model run on the same references; the Singularity community fine-tune.
 - `ref2va_hd` with other refine-step or draft-step counts; a second seed for `r1` and `r2`.
 - `ref4` at `p720` with another seed or step count, and a second sample of `r3` (one run only).
+- Other `--shift` values, the HyperFlow 8-step LoRA, `MiniMaxH3TurboSampler`, and other LoRAs on the `ref4` path (`r4` used only 12/3 with the 4-step LoRA).
 - Lip-sync and dialogue; only audio presence and level were checked.
 - A human blind comparison of draft vs refined; the detail comparison is by eye.
