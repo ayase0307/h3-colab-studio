@@ -324,7 +324,10 @@ def clean_config(value, need_refs=True):
         images = {"refs": refs}
     else:
         images = {k: v for k, v in images.items() if k in IMAGE_NAMES[:2]}
-    return dict(sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
+    shift = bool(value.get("shift", False))
+    if shift and mode not in ("ref4", "ref2va", "ref2va_hd"):
+        raise ValueError("shift 只能用在 ref4、ref2va、ref2va_hd（Omni 本來就有 shift）。")
+    return dict(shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
 
 
 def upload_image(data_url, _filename="image"):
@@ -406,7 +409,11 @@ def graph_for(config, profile="int8", prefix="h3"):
         graph["16"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": ["1", 0], "shift_video": 12.0, "shift_audio": 3.0}}
         graph["8"]["inputs"]["model"] = ["16", 0]
         graph["11"]["inputs"]["model"] = ["16", 0]
-    # ref2va = official Comfy-Org r2v template: non-distilled Ref2VA, no LoRA, no shift node, BasicGuider, res_multistep + simple
+    if config.get("shift"):  # opt-in video/audio shift 12/3: community Ref2VA workflows and Ayase Studio use it, the official r2v template does not
+        graph["16"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": graph["8"]["inputs"]["model"], "shift_video": 12.0, "shift_audio": 3.0}}
+        graph["8"]["inputs"]["model"] = ["16", 0]
+        graph["11"]["inputs"]["model"] = ["16", 0]
+    # ref2va = official Comfy-Org r2v template: non-distilled Ref2VA, no LoRA, no shift node (unless shift=true), BasicGuider, res_multistep + simple
     if config["mode"] in REF_MODES:
         graph["7"] = {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": {"clip": ["3", 0], "vae": ["4", 0], "audio_vae": ["5", 0], "prompt": config["prompt"], "width": config["width"], "height": config["height"], "length": config["frames"], "ref_image_size": "match"}}
         for index, name in enumerate(config["refs"]):

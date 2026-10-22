@@ -49,6 +49,15 @@ assert (h["width"], h["height"], h["steps"], h["refine_steps"]) == (832, 480, 20
 assert gh["48"]["inputs"]["step"] == 12 and gh["45"]["inputs"]["width"] == 1280 and not any("LoraLoader" in n["class_type"] for n in gh.values())
 try: m.clean_config({"prompt": "x", "mode": "ref2va_hd", "steps": 12, "refine_steps": 12, "ref_1": "h3ref_a.png"}); raise SystemExit("refine_steps >= steps accepted")
 except ValueError: pass
+# opt-in shift: ref4 keeps LoRA -> shift -> guider/scheduler; ref2va_hd refine guider also goes through the shift; omni rejects the flag
+for mode in ("ref4", "ref2va", "ref2va_hd"):
+    s = m.clean_config({"prompt": "x", "mode": mode, "shift": True, "ref_1": "h3ref_a.png"}); gs = m.graph_for(s, "int8enc"); wired(gs)
+    assert gs["16"]["class_type"] == "MiniMaxH3SigmaShift" and gs["8"]["inputs"]["model"] == ["16", 0] and gs["11"]["inputs"]["model"] == ["16", 0], mode
+    assert gs["16"]["inputs"]["model"] == (["2", 0] if mode == "ref4" else ["1", 0]), mode
+    assert "16" not in m.graph_for(m.clean_config({"prompt": "x", "mode": mode, "ref_1": "h3ref_a.png"}), "int8enc"), mode
+assert gs["46"]["inputs"]["model"] == ["16", 0]
+try: m.clean_config({"prompt": "x", "mode": "omni", "shift": True, "ref_1": "h3ref_a.png"}); raise SystemExit("shift accepted on omni")
+except ValueError: pass
 # plain omni draft at p480 still the old shape
 o = m.clean_config({"prompt": "x", "mode": "omni", "size": "p480", "seconds": "15", "ref_1": "h3ref_a.png"}); go = m.graph_for(o)
 assert "40" not in go and go["13"]["inputs"]["samples"] == ["12", 0] and (o["width"], o["height"], o["frames"]) == (832, 480, 362)
