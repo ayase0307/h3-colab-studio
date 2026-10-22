@@ -84,6 +84,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
   - `omni` 832×480 草稿：5 秒草稿 41 秒、15 秒 171 秒。
   - `omni_hd`：同一個工作再加 **1280×720 的二次取樣**（見下）。
   - `ref4`：Ref2VA ＋ 4 步 LoRA，草稿約快 1.5 倍（不能拿去精修）。
+  - `ref2va`／`ref2va_hd`：官方未蒸餾 Ref2VA（20 步），單階段 1280×704，或 480p 草稿＋720p 二次取樣。畫面較乾淨，但慢 2–3 倍；各只有一次戰鬥測試（[對照組](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)）。
 - **用 seed 抽卡。** `omni_hd` 內的草稿，和相同 seed、提示詞、參考圖的單獨 `omni` 草稿逐影格相同，所以可以先挑中意的草稿，再精修同一支。
 - **逐工作記錄。** 每個結果都帶階段時間線（載入、草稿、放大、精修、解碼）；`h3q cu` 維護 Colab 運算單位日誌。
 - **命令列與 agent 技能**（`skills/h3-colab-studio`）：Claude Code 或任何讀 SKILL.md 的 agent 都能送件、等待、驗證與回報。
@@ -108,7 +109,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 
 ## 在 Colab A100（40 GB）上的實測
 
-第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。
+第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。第三、四輪（未蒸餾對照組）見 [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)。
 
 | 長度 | 只出草稿（`omni`） | `omni_hd`（草稿＋720p） | 運算單位（`omni_hd`） |
 |---|---:|---:|---:|
@@ -128,7 +129,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 | 第二段 動作能量／結尾對中段 | 28.3 / 81% | 28.1 / 93% |
 | 安靜的說話特寫（對照尺度） | 1.4–2.1 | － |
 
-**參考圖影響很大。** 我第一輪用的是依角色文字自己生成的兩張圖，草稿裡有一鏡把兩位格鬥家都畫成 Kai，整體看起來也弱很多；用同樣的提示詞與 seed 改成原始兩張圖重跑，就解決了。原流程本身也是不同的配方（16 步、單階段、未蒸餾），所以預期的是相近的風格，而不是一模一樣的鏡頭。並排畫面與細節：[`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments)。
+**參考圖影響很大。** 我第一輪用的是依角色文字自己生成的兩張圖，草稿裡有一鏡把兩位格鬥家都畫成 Kai，整體看起來也弱很多；用同樣的提示詞與 seed 改成原始兩張圖重跑，就解決了。原流程本身也是不同的配方（FreeVideo，底層是 VDN-H3，16 步 `high`，單階段），所以預期的是相近的風格，而不是一模一樣的鏡頭。未蒸餾的 Ref2VA 對照組畫面較乾淨、動作反而較少（單階段 18.6、加二次取樣 16.4），所以差距不只是 Omni 加速造成的。並排畫面與細節：[`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments)。
 
 <p align="center">
   <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="第一段畫面：第 1、3 排是 h3-combat-impact 展示片，第 2、4 排是本儲存庫" width="92%"><br>

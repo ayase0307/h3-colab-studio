@@ -1,6 +1,6 @@
 ---
 name: h3-colab-studio
-description: Use when you need to generate MiniMax H3 / FastH3 Omni videos on the user's Google Colab Pro GPU (A100) through the Drive job queue instead of a local GPU - submit prompt + reference images, wait for the render, verify the MP4, track Colab compute units, and run the draft-then-720p two-pass flow (omni draft at 480p, then omni_hd second sampling to 1280x720). Triggers - "Colab", "A100", "運算單元 / compute units", "抽卡 / draft then refine", "omni_hd", "h3q", "送件 / 取件", "h3-queue", "用 Colab 跑 H3", reference-image video (Ref2VA) at 5/10/15 s.
+description: Use when you need to generate MiniMax H3 / FastH3 Omni videos on the user's Google Colab Pro GPU (A100) through the Drive job queue instead of a local GPU - submit prompt + reference images, wait for the render, verify the MP4, track Colab compute units, and run the draft-then-720p two-pass flow (omni draft at 480p, then omni_hd second sampling to 1280x720). Triggers - "Colab", "A100", "運算單元 / compute units", "抽卡 / draft then refine", "omni_hd", "h3q", "送件 / 取件", "h3-queue", "用 Colab 跑 H3", reference-image video (Ref2VA) at 5/10/15 s, "ref2va_hd".
 ---
 
 # H3 Colab Studio
@@ -28,15 +28,18 @@ Queue root is found automatically (`G:/我的雲端硬碟/h3-queue`, `~/Google D
 | Fast draft you can re-roll by seed | `omni` + `--size p480` | 1-9 images | 5 s: 41 s, 15 s: 171 s (earlier 1-reference session) |
 | Final 720p, same seed as the chosen draft | `omni_hd` (size defaults to `p480`) | 1-9 images | 5 s: 133 s warm (355 s cold), 10 s: 378 s, 15 s: 656-681 s |
 | Faster draft, **cannot** be refined | `ref4` | 1-9 images | 5 s: 27 s, 10 s: 57 s (earlier 1-reference session) |
+| Cleaner frames, non-distilled, one pass (slow) | `ref2va` (--steps, default 20) | 1-9 images | 15 s: 1,817 s cold, 1280x704 |
+| Non-distilled draft + 720p second sampling (slow) | `ref2va_hd` (--refine-steps default 8) | 1-9 images | 15 s: 1,412 s cold |
 | No reference images | `turbo`, `turbo4`, `quality` | optional first/last frame | 5 s: 130 s |
 
 Rules that matter:
-1. A draft can only be refined if it came from `omni`. The `omni` draft and the draft inside `omni_hd` are frame-identical for the same seed, prompt and refs. `ref4` drafts are a different model and cannot be refined.
+1. A draft can only be refined if it came from `omni`. The `omni` draft and the draft inside `omni_hd` are frame-identical for the same seed, prompt and refs. `ref4` drafts are a different model and cannot be refined. Frame-identity of a standalone `ref2va --size p480` draft with the draft inside `ref2va_hd` has not been tested. Plain `ref2va` defaults to 1280x704, so it is not a draft.
 2. `ref_N` maps to `<Picture N>` in the prompt. Numbers must start at 1 and be contiguous.
 3. `omni_hd` renders 1280x736 and crops to 1280x720 (720 is not on H3's 32-pixel grid).
 4. Never stack LoRAs. Omni is already 8-step distilled.
 5. **Reference images matter more than most settings.** Use images with clearly different silhouettes and colours (in our test, a blond braid + orange visor against white spiky hair + horns). With look-alike or weak references the draft itself can draw two fighters as the same person; the second sampling cannot fix that. Check the draft stills (`omni_hd` keeps `<id>.draft.mp4`).
-6. `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
+6. For `omni_hd`: `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
+7. `ref2va` / `ref2va_hd` use the Ref2VA weights from the download_ref4 box in cell ①. In the one combat test they gave cleaner frames but lower motion energy than Omni (18.6 / 16.4 vs 24.7). Use when clean identity matters more than impact (one sample each). About 2-3x the time.
 
 ## 2. Submit, wait, verify
 

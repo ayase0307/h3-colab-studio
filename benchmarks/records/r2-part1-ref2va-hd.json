@@ -1,0 +1,23 @@
+{
+ "id": "r2-part1-ref2va-hd",
+ "mode": "ref2va_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 20261019,
+ "total_s": 1412.05,
+ "stages_s": {
+  "load+draft": 539.8,
+  "decode draft": 25.6,
+  "up-res": 74.1,
+  "refine": 728.8,
+  "final decode+mux": 43.5
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 12.9,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 16.39
+ }
+}

@@ -54,8 +54,9 @@ h3-queue/
 | prompt | 必填，16000 字內 |
 | size | `p480`(832x480，草稿) `p480v`(480x832) `landscape`(960x544) `portrait`(544x960) `square`(768x768) `native`(1344x768) |
 | seconds | `"5"` `"8"` `"10"` `"15"` |
-| mode | `omni_hd`（Omni 草稿加二次取樣，輸出 1280×720，至少 1 張參考圖；`size` 只能 `p480` 或 `p480v`，預設 `p480`；可選 `refine_steps` 2～6，預設 4）`ref4`（Ref2VA 4 步，參考圖專用）`turbo`（8 步，預設）`turbo4`（4 步，最快；LoRA 為 768p 調校，建議配 `native` 或 `square` 比較）`omni`（FastH3 Omni，8 步，參考圖生成，**至少 1 張參考圖**）`quality`（20 步起，品質優先） |
-| steps | 只有 `quality` 有效：16 / 20 / 25 / 30 |
+| mode | `omni_hd`（Omni 草稿加二次取樣，輸出 1280×720，至少 1 張參考圖；`size` 只能 `p480` 或 `p480v`，預設 `p480`；可選 `refine_steps` 2～6，預設 4）`ref4`（Ref2VA 4 步，參考圖專用）`turbo`（8 步，預設）`turbo4`（4 步，最快；LoRA 為 768p 調校，建議配 `native` 或 `square` 比較）`omni`（FastH3 Omni，8 步，參考圖生成，**至少 1 張參考圖**）`quality`（20 步起，品質優先）`ref2va`（官方非蒸餾 Ref2VA，單階段，參考圖專用）`ref2va_hd`（Ref2VA 草稿加尾段二次取樣，輸出 1280×720，參考圖專用） |
+| steps | 只有 `quality` 有效：16 / 20 / 25 / 30。`ref2va` 與 `ref2va_hd`：12～30，預設 20 |
+| refine_steps | 只有 `ref2va_hd` 用：2～12，預設 8，必須小於 `steps`（尾段取樣的步數）。`omni_hd` 的設定見上表 mode 列 |
 | seed | -1 隨機，或 0–4294967295 |
 | images | 宣告隨附的圖片：一般模式 `first_frame`、`last_frame`；`omni` 模式 `ref_1`…`ref_9`（依序對應提示詞裡的 `<Picture 1>`…`<Picture 9>`） |
 | sampler | 選用：`res_multistep+simple`（預設）或 `euler+beta`。兩者實測畫質相近、速度相同，用預設即可 |

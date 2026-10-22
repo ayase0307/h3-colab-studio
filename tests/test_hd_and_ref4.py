@@ -37,6 +37,18 @@ gr = m.graph_for(r); wired(gr)
 assert r["steps"] == 4 and "ref2va_pruned_int8" in gr["1"]["inputs"]["unet_name"] and "ref2v_turbo_4step" in gr["2"]["inputs"]["lora_name"]
 assert gr["8"]["inputs"]["model"] == ["2", 0] == gr["11"]["inputs"]["model"] and "16" not in gr and gr["7"]["class_type"] == "MiniMaxH3ReferenceToVideo" and gr["11"]["inputs"]["steps"] == 4
 assert sum("LoraLoader" in n["class_type"] for n in gr.values()) == 1
+# ref2va: official r2v template, non-distilled, no LoRA, no shift node, 1280x704 single pass
+q = m.clean_config({"prompt": "x", "mode": "ref2va", "seconds": "15", "ref_1": "h3ref_a.png"}); gq = m.graph_for(q, "int8enc"); wired(gq)
+assert (q["width"], q["height"], q["frames"], q["steps"]) == (1280, 704, 362, 20) and "ref2va_pruned_int8" in gq["1"]["inputs"]["unet_name"]
+assert not any("LoraLoader" in n["class_type"] or "SigmaShift" in n["class_type"] for n in gq.values()) and gq["11"]["inputs"]["steps"] == 20 and gq["8"]["inputs"]["model"] == ["1", 0]
+try: m.clean_config({"prompt": "x", "mode": "ref2va", "steps": 5, "ref_1": "h3ref_a.png"}); raise SystemExit("steps 5 accepted")
+except ValueError: pass
+# ref2va_hd: non-distilled draft (832x480, 20 steps) + tail refine at 1280x736 on the same schedule, no shift node
+h = m.clean_config({"prompt": "x", "mode": "ref2va_hd", "seconds": "15", "ref_1": "h3ref_a.png"}); gh = m.graph_for(h, "int8enc"); wired(gh)
+assert (h["width"], h["height"], h["steps"], h["refine_steps"]) == (832, 480, 20, 8) and "16" not in gh and gh["46"]["inputs"]["model"] == ["1", 0]
+assert gh["48"]["inputs"]["step"] == 12 and gh["45"]["inputs"]["width"] == 1280 and not any("LoraLoader" in n["class_type"] for n in gh.values())
+try: m.clean_config({"prompt": "x", "mode": "ref2va_hd", "steps": 12, "refine_steps": 12, "ref_1": "h3ref_a.png"}); raise SystemExit("refine_steps >= steps accepted")
+except ValueError: pass
 # plain omni draft at p480 still the old shape
 o = m.clean_config({"prompt": "x", "mode": "omni", "size": "p480", "seconds": "15", "ref_1": "h3ref_a.png"}); go = m.graph_for(o)
 assert "40" not in go and go["13"]["inputs"]["samples"] == ["12", 0] and (o["width"], o["height"], o["frames"]) == (832, 480, 362)

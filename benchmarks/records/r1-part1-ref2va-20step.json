@@ -1,0 +1,23 @@
+{
+ "id": "r1-part1-ref2va-20step",
+ "mode": "ref2va",
+ "draft_size": "1280x704",
+ "seconds": 15.1,
+ "seed": 20261019,
+ "total_s": 1817.46,
+ "stages_s": {
+  "load+draft": 1765.0,
+  "decode draft": 0.0,
+  "up-res": 0.0,
+  "refine": 0.0,
+  "final decode+mux": 52.3
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 15.8,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 18.64
+ }
+}

@@ -45,10 +45,11 @@ PROFILES["int8enc"] = {**PROFILES["int8"], "label": "INT8（INT8 文字編碼器
 # Ref2VA INT8 + ref2v turbo 4-step LoRA: the alternative draft engine to compare against Omni.
 REF4_FILES = {"model": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors", "lora": "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"}
 REF4_DISK_GIB = 23
-REF_MODES = ("omni", "omni_hd", "ref4")
+REF_MODES = ("omni", "omni_hd", "ref4", "ref2va", "ref2va_hd")
+HD_MODES = ("omni_hd", "ref2va_hd")
 # draft size -> (render w, render h, crop w, crop h, crop x, crop y). 720 is not on H3's 32-px grid, so render 736 and crop in-graph.
 HD_TARGETS = {"p480": (1280, 736, 1280, 720, 0, 8), "p480v": (736, 1280, 720, 1280, 8, 0)}
-SIZES = {"p480": (832, 480), "p480v": (480, 832), "landscape": (960, 544), "portrait": (544, 960), "square": (768, 768), "native": (1344, 768)}
+SIZES = {"p480": (832, 480), "p480v": (480, 832), "landscape": (960, 544), "portrait": (544, 960), "square": (768, 768), "native": (1344, 768), "p720": (1280, 704)}
 FRAMES = {"5": 124, "8": 192, "10": 243, "15": 362}
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -274,15 +275,23 @@ def clean_config(value, need_refs=True):
         raise ValueError("請輸入提示詞（16,000 字以內）。")
     seconds = str(value.get("seconds", "5"))
     mode = value.get("mode", "turbo")
-    size = value.get("size", "p480" if mode == "omni_hd" else "landscape")
-    if size not in SIZES or seconds not in FRAMES or mode not in ("turbo", "turbo4", "omni", "omni_hd", "ref4", "quality"):
+    size = value.get("size", "p480" if mode in HD_MODES else "landscape")
+    if size not in SIZES or seconds not in FRAMES or mode not in ("turbo", "turbo4", "omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "quality"):
         raise ValueError("請確認畫面比例、長度與品質設定。")
-    if mode == "omni_hd" and size not in HD_TARGETS:
-        raise ValueError("omni_hd 的草稿尺寸只能是 " + " 或 ".join(HD_TARGETS) + "。")
+    if mode == "ref2va" and "size" not in value:
+        size = "p720"
+    if mode in HD_MODES and size not in HD_TARGETS:
+        raise ValueError("omni_hd／ref2va_hd 的草稿尺寸只能是 " + " 或 ".join(HD_TARGETS) + "。")
     refine_steps = int(value.get("refine_steps", 4))
-    if not 2 <= refine_steps <= 6:
-        raise ValueError("refine_steps 請設為 2 至 6。")
+    if mode == "ref2va_hd" and "refine_steps" not in value:
+        refine_steps = 8  # last 8 of the 20-step schedule
+    if not 2 <= refine_steps <= (12 if mode == "ref2va_hd" else 6):
+        raise ValueError("refine_steps 請設為 2 至 6（ref2va_hd 可到 12）。")
     steps = {"turbo": 8, "turbo4": 4, "omni": 8, "omni_hd": 8, "ref4": 4}.get(mode) or int(value.get("steps", 20))
+    if mode in ("ref2va", "ref2va_hd") and not 12 <= steps <= 30:  # official template default 20; audio needs 12+
+        raise ValueError("ref2va 的步數請設為 12 至 30。")
+    if mode == "ref2va_hd" and refine_steps >= steps:
+        raise ValueError("ref2va_hd 的 refine_steps 必須小於 steps，否則二次取樣會完全重畫、忽略草稿。")
     if mode == "quality" and steps not in (16, 20, 25, 30):
         raise ValueError("標準模式的步數請從 16、20、25、30 中選擇。")
     raw_seed = value.get("seed", -1)
@@ -311,7 +320,7 @@ def clean_config(value, need_refs=True):
             raise ValueError("參考圖片編號必須從 ref_1 開始連續（ref_N 對應提示詞裡的 <Picture N>）。")
         refs = [images[k] for k in IMAGE_NAMES[2:] if k in images] or [images[k] for k in IMAGE_NAMES[:2] if k in images]
         if not refs and need_refs:
-            raise ValueError("參考圖模式（omni、omni_hd、ref4）至少需要一張參考圖片。")
+            raise ValueError("參考圖模式（omni、omni_hd、ref4、ref2va、ref2va_hd）至少需要一張參考圖片。")
         images = {"refs": refs}
     else:
         images = {k: v for k, v in images.items() if k in IMAGE_NAMES[:2]}
@@ -338,7 +347,7 @@ def upload_image(data_url, _filename="image"):
 
 
 def _add_refine_pass(graph, config, sampler_name, prefix):
-    """Second sampling at 720p: decode draft, resize, re-encode, then run only the tail of the same 8-step schedule.
+    """Second sampling at 720p: decode draft, resize, re-encode, then run only the tail of the same schedule (8 steps for omni_hd, `refine_steps` of `steps` for ref2va_hd).
     The distilled model was trained on those exact timesteps, so a tail split beats a partial-denoise schedule."""
     rw, rh, cw, ch, cx, cy = HD_TARGETS[config["size"]]
     graph["40"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["12", 0]}}
@@ -350,7 +359,7 @@ def _add_refine_pass(graph, config, sampler_name, prefix):
     for index in range(len(config["refs"])):
         refs[f"ref_images.ref_image_{index}"] = [str(30 + index), 0]
     graph["45"] = {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": refs}
-    graph["46"] = {"class_type": "BasicGuider", "inputs": {"model": ["16", 0], "conditioning": ["45", 0]}}
+    graph["46"] = {"class_type": "BasicGuider", "inputs": {"model": ["16", 0] if "16" in graph else ["1", 0], "conditioning": ["45", 0]}}
     graph["48"] = {"class_type": "SplitSigmas", "inputs": {"sigmas": ["11", 0], "step": config["steps"] - config["refine_steps"]}}
     graph["49"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": (config["seed"] + 1) % 2**32}}
     graph["50"] = {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["49", 0], "guider": ["46", 0], "sampler": ["10", 0], "sigmas": ["48", 1], "latent_image": ["44", 0]}}
@@ -366,7 +375,7 @@ def graph_for(config, profile="int8", prefix="h3"):
     files = {k: Path(v).name for k, v in PROFILES[profile]["files"].items()}
     if config["mode"] in ("omni", "omni_hd"):
         files["model"] = Path(OMNI_FILES[profile]).name
-    if config["mode"] == "ref4":
+    if config["mode"] in ("ref4", "ref2va", "ref2va_hd"):
         files["model"], files["lora"] = (Path(v).name for v in REF4_FILES.values())
     sampler_name, scheduler = SAMPLERS[config.get("sampler", "res_multistep+simple")]
     graph = {
@@ -397,12 +406,13 @@ def graph_for(config, profile="int8", prefix="h3"):
         graph["16"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": ["1", 0], "shift_video": 12.0, "shift_audio": 3.0}}
         graph["8"]["inputs"]["model"] = ["16", 0]
         graph["11"]["inputs"]["model"] = ["16", 0]
+    # ref2va = official Comfy-Org r2v template: non-distilled Ref2VA, no LoRA, no shift node, BasicGuider, res_multistep + simple
     if config["mode"] in REF_MODES:
         graph["7"] = {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": {"clip": ["3", 0], "vae": ["4", 0], "audio_vae": ["5", 0], "prompt": config["prompt"], "width": config["width"], "height": config["height"], "length": config["frames"], "ref_image_size": "match"}}
         for index, name in enumerate(config["refs"]):
             graph[str(30 + index)] = {"class_type": "LoadImage", "inputs": {"image": name}}
             graph["7"]["inputs"][f"ref_images.ref_image_{index}"] = [str(30 + index), 0]
-    if config["mode"] == "omni_hd":
+    if config["mode"] in HD_MODES:
         _add_refine_pass(graph, config, sampler_name, prefix)
     for number, key in (("20", "first_frame"), ("21", "last_frame")):
         if config.get(key):
@@ -461,8 +471,8 @@ def submit(config):
     if config["mode"] in ("omni", "omni_hd") and not json.loads((BASE / "setup.json").read_text()).get("omni"):
         raise RuntimeError("尚未下載 FastH3 Omni 模型。請在 ① 勾選「下載 FastH3 Omni」後重新執行。")
     record = json.loads((BASE / "setup.json").read_text())
-    if config["mode"] == "ref4" and not record.get("ref4"):
-        raise RuntimeError("尚未下載 Ref2VA 4 步草稿模型。請在 ① 勾選「download_ref4」後重新執行。")
+    if config["mode"] in ("ref4", "ref2va", "ref2va_hd") and not record.get("ref4"):
+        raise RuntimeError("尚未下載 Ref2VA 模型（ref4／ref2va 共用）。請在 ① 勾選「download_ref4」後重新執行。")
     with _lock:
         if _active:
             raise RuntimeError("目前正在生成。請等待完成或中止後再執行。")

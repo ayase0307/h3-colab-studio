@@ -84,6 +84,7 @@ This repo is a notebook plus a small client: your agent drops a job into a Drive
   - `omni` draft at 832x480: a 5 s draft in 41 s, 15 s in 171 s.
   - `omni_hd`: the same job plus a **second sampling at 1280x720** (details below).
   - `ref4`: Ref2VA + 4-step LoRA, about 1.5x faster drafts (not refinable).
+  - `ref2va` / `ref2va_hd`: the official non-distilled Ref2VA (20 steps), one pass at 1280x704 or a 480p draft plus second sampling at 720p. Cleaner but 2-3x slower; one combat test each ([control runs](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)).
 - **Re-roll by seed.** A draft inside `omni_hd` is frame-identical to a standalone `omni` draft with the same seed, prompt and references, so you can pick a favourite draft and refine exactly that one.
 - **Per-job accounting.** Each result carries a stage timeline (load, draft, up-res, refine, decode); `h3q cu` keeps the Colab compute-unit log.
 - **A CLI and an agent skill** (`skills/h3-colab-studio`) so Claude Code or any SKILL.md-aware agent can submit, wait, verify and report.
@@ -108,7 +109,7 @@ The second pass is the same distilled model run on only the tail of its own 8-st
 
 ## Measured on a Colab A100 (40 GB)
 
-Session 1: 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Session 2 (the re-run with the original references): 2 renders, 2.21 CU. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md).
+Session 1: 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Session 2 (the re-run with the original references): 2 renders, 2.21 CU. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md). Sessions 3-4 (non-distilled controls): see [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling).
 
 | Clip | Draft only (`omni`) | `omni_hd` (draft + 720p) | Compute units (`omni_hd`) |
 |---|---:|---:|---:|
@@ -128,7 +129,7 @@ The second sampling is 54% of a 15 s job. `--refine-steps 3` cuts a 15 s job fro
 | Part 2 motion energy / end-over-mid | 28.3 / 81% | 28.1 / 93% |
 | Quiet talking portraits, for scale | 1.4-2.1 | - |
 
-**Reference images decide a lot.** My first run used two images I generated from the character text; the draft drew both fighters as Kai in one shot and the whole result looked weaker. Re-running the same prompts and seed with the original two images fixed that. The original pipeline is also a different recipe (16 steps, one pass, no distilled model), so expect a similar look, not the same shots. Side-by-side frames and details: [`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments).
+**Reference images decide a lot.** My first run used two images I generated from the character text; the draft drew both fighters as Kai in one shot and the whole result looked weaker. Re-running the same prompts and seed with the original two images fixed that. The original pipeline is also a different recipe (FreeVideo on VDN-H3, 16-step `high`, one pass), so expect a similar look, not the same shots. A non-distilled Ref2VA control gave cleaner frames but less motion (18.6 single pass, 16.4 with second sampling), so Omni's speed-up alone does not explain the gap. Side-by-side frames and details: [`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments).
 
 <p align="center">
   <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="Part 1 frames: the h3-combat-impact showcase on rows 1 and 3, this repo on rows 2 and 4" width="92%"><br>
