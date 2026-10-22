@@ -1,0 +1,10 @@
+{"t": "2026-10-22T05:31:57Z", "epoch": 1792647117.8452568, "balance": 376.67, "note": "session start (no VM)"}
+{"t": "2026-10-22T05:41:32Z", "epoch": 1792647692.9111788, "balance": 376.27, "note": "A100 up, install done, cell2 mounted"}
+{"t": "2026-10-22T05:52:48Z", "epoch": 1792648368.7109566, "balance": 374.94, "note": "after B5 smoke (cold)"}
+{"t": "2026-10-22T06:04:51Z", "epoch": 1792649091.2363272, "balance": 374.5, "note": "after A1 15s HD"}
+{"t": "2026-10-22T06:16:18Z", "epoch": 1792649778.3392875, "balance": 373.61, "note": "after A2 15s HD"}
+{"t": "2026-10-22T06:22:46Z", "epoch": 1792650166.3357308, "balance": 372.73, "note": "after B10 10s HD"}
+{"t": "2026-10-22T06:34:07Z", "epoch": 1792650847.1808722, "balance": 371.84, "note": "after B15 five-part 15s HD"}
+{"t": "2026-10-22T06:45:11Z", "epoch": 1792651511.4492626, "balance": 370.96, "note": "after B15 one-line 15s HD"}
+{"t": "2026-10-22T06:54:59Z", "epoch": 1792652099.82286, "balance": 370.09, "note": "after A1 refine-3 (all jobs done)"}
+{"t": "2026-10-22T06:55:46Z", "epoch": 1792652146.2274098, "balance": 369.64, "note": "runtime deleted"}

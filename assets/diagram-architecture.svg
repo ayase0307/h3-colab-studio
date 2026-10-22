@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="Architecture: agent or CLI writes jobs into a Google Drive queue folder, a Colab A100 notebook polls it, renders with ComfyUI on loopback, and writes the MP4 back.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f1320"/><stop offset="1" stop-color="#171d33"/></linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff7a1a"/><stop offset="1" stop-color="#ffb347"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2f7bff"/><stop offset="1" stop-color="#7cc4ff"/></linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9fb3d9"/></marker>
+    <style>
+      text{font-family:Segoe UI,Helvetica,Arial,sans-serif;fill:#e8eefc}
+      .t{font-size:22px;font-weight:700}.s{font-size:15px;fill:#9fb3d9}.m{font-size:14px;font-family:Consolas,Menlo,monospace;fill:#cfe0ff}
+      .box{fill:#1b2340;stroke:#34406b;stroke-width:1.5}.hot{fill:#241c1a;stroke:#ff7a1a;stroke-width:2}.cold{fill:#14202f;stroke:#2f7bff;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1200" height="420" rx="18" fill="url(#bg)"/>
+  <text x="40" y="46" class="t" style="font-size:26px">How a job travels</text>
+  <text x="40" y="72" class="s">No tunnel, no public port. The only bridge is a folder in your Google Drive.</text>
+
+  <rect class="box" x="40" y="110" width="250" height="230" rx="14"/>
+  <rect x="40" y="110" width="250" height="6" rx="3" fill="url(#orange)"/>
+  <text x="62" y="148" class="t">Agent / you</text>
+  <text x="62" y="176" class="m">h3q.py submit</text>
+  <text x="62" y="198" class="m">h3q.py wait</text>
+  <text x="62" y="220" class="m">h3q.py verify</text>
+  <text x="62" y="242" class="m">h3q.py cu add</text>
+  <text x="62" y="278" class="s">prompt.txt + ref images</text>
+  <text x="62" y="300" class="s">writes images first,</text>
+  <text x="62" y="320" class="s">JSON last (atomic)</text>
+
+  <rect class="hot" x="470" y="110" width="260" height="230" rx="14"/>
+  <text x="494" y="148" class="t">Drive: h3-queue</text>
+  <text x="494" y="180" class="m">inbox/    new jobs</text>
+  <text x="494" y="204" class="m">running/  claimed</text>
+  <text x="494" y="228" class="m">done/     mp4 + marker</text>
+  <text x="494" y="252" class="m">failed/   error text</text>
+  <text x="494" y="276" class="m">heartbeat.json</text>
+  <text x="494" y="312" class="s">marker carries mp4 size,</text>
+  <text x="494" y="332" class="s">so sync lag never fools you</text>
+
+  <rect class="cold" x="910" y="110" width="250" height="230" rx="14"/>
+  <rect x="910" y="110" width="250" height="6" rx="3" fill="url(#blue)"/>
+  <text x="932" y="148" class="t">Colab A100</text>
+  <text x="932" y="180" class="m">cell 2: queue loop</text>
+  <text x="932" y="204" class="m">backend: graph builder</text>
+  <text x="932" y="228" class="m">ComfyUI 127.0.0.1</text>
+  <text x="932" y="252" class="m">Omni / Ref2VA INT8</text>
+  <text x="932" y="288" class="s">claims a job, renders,</text>
+  <text x="932" y="308" class="s">copies mp4, writes marker last</text>
+
+  <path d="M290 195 L470 195" stroke="#9fb3d9" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M730 160 L910 160" stroke="#9fb3d9" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M910 290 L730 290" stroke="#9fb3d9" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <path d="M470 320 L290 320" stroke="#9fb3d9" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="318" y="184" class="s">job</text><text x="770" y="150" class="s">poll ~30 s</text><text x="770" y="282" class="s">result</text><text x="318" y="344" class="s">poll done/</text>
+  <text x="40" y="392" class="s">Colab bills runtime hours (about 5.3 CU/h on A100), not jobs: queue a batch, then end the runtime.</text>
+</svg>

@@ -1,0 +1,23 @@
+{
+ "id": "s7-a2-combat-part2",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 21,
+ "total_s": 669.47,
+ "stages_s": {
+  "load+draft": 170.0,
+  "decode draft": 17.4,
+  "up-res": 79.0,
+  "refine": 358.6,
+  "final decode+mux": 43.7
+ },
+ "prompt_chars": 6707,
+ "prompt_words": 1135,
+ "refs": 2,
+ "mp4_mb": 16.8,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 25.98
+ }
+}

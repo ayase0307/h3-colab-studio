@@ -1,0 +1,23 @@
+{
+ "id": "s9-b15-fivepart",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 12,
+ "total_s": 681.08,
+ "stages_s": {
+  "load+draft": 174.4,
+  "decode draft": 17.7,
+  "up-res": 82.4,
+  "refine": 360.7,
+  "final decode+mux": 45.2
+ },
+ "prompt_chars": 8986,
+ "prompt_words": 1525,
+ "refs": 2,
+ "mp4_mb": 19.2,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 22.24
+ }
+}

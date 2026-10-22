@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-label="omni_hd two-pass pipeline: Omni 8-step draft at 832x480, decode and resize to 1280x736, re-encode with the draft audio latent, resample only the last 4 of 8 steps, crop to 1280x720.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0f1320"/><stop offset="1" stop-color="#171d33"/></linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9fb3d9"/></marker>
+    <style>
+      text{font-family:Segoe UI,Helvetica,Arial,sans-serif;fill:#e8eefc}
+      .t{font-size:20px;font-weight:700}.s{font-size:14px;fill:#9fb3d9}.m{font-size:13px;font-family:Consolas,Menlo,monospace;fill:#cfe0ff}.n{font-size:30px;font-weight:800;fill:#ff9a3d}
+      .box{fill:#1b2340;stroke:#34406b;stroke-width:1.5}.hot{fill:#241c1a;stroke:#ff7a1a;stroke-width:2}.cold{fill:#14202f;stroke:#2f7bff;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1200" height="440" rx="18" fill="url(#bg)"/>
+  <text x="40" y="46" class="t" style="font-size:26px">omni_hd: draft, then a second sampling at 720p</text>
+  <text x="40" y="72" class="s">One job. The draft inside it is frame-identical to a standalone omni draft with the same seed, prompt and references.</text>
+
+  <rect class="hot" x="30" y="110" width="200" height="190" rx="14"/>
+  <text x="50" y="146" class="n">1</text><text x="82" y="146" class="t">Draft</text>
+  <text x="50" y="176" class="m">Omni 8 steps</text><text x="50" y="198" class="m">832 x 480</text><text x="50" y="220" class="m">refs: Picture 1..9</text>
+  <text x="50" y="256" class="s">identity locked by</text><text x="50" y="276" class="s">reference images</text>
+
+  <rect class="box" x="262" y="110" width="200" height="190" rx="14"/>
+  <text x="282" y="146" class="n">2</text><text x="314" y="146" class="t">Decode</text>
+  <text x="282" y="176" class="m">VAE decode draft</text><text x="282" y="198" class="m">split audio latent</text>
+  <text x="282" y="256" class="s">draft.mp4 saved</text><text x="282" y="276" class="s">for side-by-side</text>
+
+  <rect class="box" x="494" y="110" width="200" height="190" rx="14"/>
+  <text x="514" y="146" class="n">3</text><text x="546" y="146" class="t">Up-res</text>
+  <text x="514" y="176" class="m">lanczos resize</text><text x="514" y="198" class="m">1280 x 736</text><text x="514" y="220" class="m">VAE encode + audio</text>
+  <text x="514" y="256" class="s">736 = 23 x 32,</text><text x="514" y="276" class="s">720 is off the grid</text>
+
+  <rect class="cold" x="726" y="110" width="230" height="190" rx="14"/>
+  <text x="746" y="146" class="n">4</text><text x="778" y="146" class="t">Second sampling</text>
+  <text x="746" y="176" class="m">same model, 8-step schedule</text><text x="746" y="198" class="m">run only steps 5-8</text><text x="746" y="220" class="m">refs re-injected</text>
+  <text x="746" y="256" class="s">tail split, not partial</text><text x="746" y="276" class="s">denoise: matches how</text><text x="746" y="296" class="s">the distilled model trained</text>
+
+  <rect class="box" x="988" y="110" width="182" height="190" rx="14"/>
+  <text x="1008" y="146" class="n">5</text><text x="1040" y="146" class="t">Crop</text>
+  <text x="1008" y="176" class="m">1280 x 720</text><text x="1008" y="198" class="m">H.264 + audio</text>
+  <text x="1008" y="256" class="s">mp4 + settings.json</text><text x="1008" y="276" class="s">with stage timeline</text>
+
+  <path d="M230 205 L262 205" stroke="#9fb3d9" stroke-width="2.5" marker-end="url(#arr)"/>
+  <path d="M462 205 L494 205" stroke="#9fb3d9" stroke-width="2.5" marker-end="url(#arr)"/>
+  <path d="M694 205 L726 205" stroke="#9fb3d9" stroke-width="2.5" marker-end="url(#arr)"/>
+  <path d="M956 205 L988 205" stroke="#9fb3d9" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <rect x="30" y="334" width="1140" height="70" rx="12" fill="#151b30" stroke="#2a3558"/>
+  <text x="52" y="362" class="t" style="font-size:16px">Re-roll workflow</text>
+  <text x="52" y="388" class="s">Run omni drafts at 480p with new seeds (5 s: 41 s, 15 s: 171 s) - pick a favourite - run omni_hd with the same seed to get its 720p version.</text>
+</svg>

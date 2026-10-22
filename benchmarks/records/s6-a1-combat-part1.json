@@ -1,0 +1,23 @@
+{
+ "id": "s6-a1-combat-part1",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 21,
+ "total_s": 665.38,
+ "stages_s": {
+  "load+draft": 170.6,
+  "decode draft": 17.3,
+  "up-res": 75.0,
+  "refine": 358.4,
+  "final decode+mux": 43.7
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 17.7,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 25.64
+ }
+}

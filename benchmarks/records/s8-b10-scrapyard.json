@@ -1,0 +1,23 @@
+{
+ "id": "s8-b10-scrapyard",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 10.1,
+ "seed": 12,
+ "total_s": 378.35,
+ "stages_s": {
+  "load+draft": 95.6,
+  "decode draft": 12.1,
+  "up-res": 58.0,
+  "refine": 179.8,
+  "final decode+mux": 32.0
+ },
+ "prompt_chars": 7145,
+ "prompt_words": 1200,
+ "refs": 2,
+ "mp4_mb": 11.8,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 20.5
+ }
+}

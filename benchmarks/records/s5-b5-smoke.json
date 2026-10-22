@@ -1,0 +1,23 @@
+{
+ "id": "s5-b5-smoke",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 5.2,
+ "seed": 12,
+ "total_s": 355.49,
+ "stages_s": {
+  "load+draft": 226.6,
+  "decode draft": 16.9,
+  "up-res": 31.8,
+  "refine": 61.3,
+  "final decode+mux": 18.6
+ },
+ "prompt_chars": 5630,
+ "prompt_words": 940,
+ "refs": 2,
+ "mp4_mb": 5.6,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 20.0
+ }
+}

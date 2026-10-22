@@ -1,0 +1,23 @@
+{
+ "id": "s10-b15-oneline",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 12,
+ "total_s": 656.47,
+ "stages_s": {
+  "load+draft": 164.5,
+  "decode draft": 17.5,
+  "up-res": 76.3,
+  "refine": 354.3,
+  "final decode+mux": 43.0
+ },
+ "prompt_chars": 4608,
+ "prompt_words": 762,
+ "refs": 2,
+ "mp4_mb": 17.4,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 22.41
+ }
+}

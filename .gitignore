@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+results/
+*.palette.png
+cu-log.jsonl.tmp
+.DS_Store
+Thumbs.db

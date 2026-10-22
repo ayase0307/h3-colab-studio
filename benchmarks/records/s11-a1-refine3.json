@@ -1,0 +1,23 @@
+{
+ "id": "s11-a1-refine3",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 21,
+ "total_s": 581.57,
+ "stages_s": {
+  "load+draft": 170.7,
+  "decode draft": 17.4,
+  "up-res": 80.2,
+  "refine": 269.0,
+  "final decode+mux": 43.4
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 17.3,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 25.1
+ }
+}
