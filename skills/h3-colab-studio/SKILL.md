@@ -35,7 +35,8 @@ Rules that matter:
 2. `ref_N` maps to `<Picture N>` in the prompt. Numbers must start at 1 and be contiguous.
 3. `omni_hd` renders 1280x736 and crops to 1280x720 (720 is not on H3's 32-pixel grid).
 4. Never stack LoRAs. Omni is already 8-step distilled.
-5. `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
+5. **Reference images matter more than most settings.** Use images with clearly different silhouettes and colours (in our test, a blond braid + orange visor against white spiky hair + horns). With look-alike or weak references the draft itself can draw two fighters as the same person; the second sampling cannot fix that. Check the draft stills (`omni_hd` keeps `<id>.draft.mp4`).
+6. `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
 
 ## 2. Submit, wait, verify
 

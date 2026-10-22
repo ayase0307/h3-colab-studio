@@ -19,7 +19,7 @@
   <img alt="MiniMax H3" src="https://img.shields.io/badge/MiniMax-H3%20%2F%20FastH3%20Omni-ff5a36">
   <img alt="Agent skill" src="https://img.shields.io/badge/agent-skill-8A2BE2">
   <img alt="Tests" src="https://img.shields.io/badge/tests-5%20scripts%20passing-2ea44f">
-  <img alt="Measured" src="https://img.shields.io/badge/measured-7%20renders%20%C2%B7%207.0%20CU-0a7">
+  <img alt="Measured" src="https://img.shields.io/badge/measured-9%20renders%20%C2%B7%209.2%20CU-0a7">
 </p>
 
 ---
@@ -50,14 +50,14 @@ All clips were rendered by this repo on one Colab A100, from two reference image
     <td align="center">
       <img src="assets/gifs/combat-part1.gif" alt="Space-station hangar brawl, part 1 of a 30 s fight"><br>
       <b>30 s combat, part 1</b> · <a href="assets/videos/combat-30s-720p.mp4">30 s MP4</a> · <a href="benchmarks/prompts/a1-combat-part1-15s.txt">prompt</a><br>
-      <sub>h3-combat-impact example, 14 shots in 15 s · 665 s</sub>
+      <sub>h3-combat-impact example, 14 shots in 15 s · original references · 715 s (fresh VM)</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
       <img src="assets/gifs/combat-part2.gif" alt="Space-station hangar brawl, part 2: close-ups and impact"><br>
       <b>30 s combat, part 2</b> · <a href="benchmarks/prompts/a2-combat-part2-15s.txt">prompt</a><br>
-      <sub>669 s · motion energy 26.0 vs 28.1 for the original pipeline</sub>
+      <sub>569 s · motion energy 28.3 vs 28.1 for the original pipeline</sub>
     </td>
     <td align="center">
       <img src="assets/gifs/draft-vs-final.gif" alt="Side by side: 480p draft on the left, 720p second sampling on the right"><br>
@@ -67,7 +67,7 @@ All clips were rendered by this repo on one Colab A100, from two reference image
   </tr>
 </table>
 
-The Kai and Vex reference images are not in this repo (the character designs follow a public Seedance showcase, as in [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact)); the prompts carry their descriptions so you can generate your own.
+The Kai and Vex reference images are not in this repo (the designs follow a public Seedance showcase, as in [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact)). The 30 s combat clips were rendered with the original two images; the scrapyard clips with two images generated from the prompt's character text.
 
 ## Why this exists
 
@@ -108,7 +108,7 @@ The second pass is the same distilled model run on only the tail of its own 8-st
 
 ## Measured on a Colab A100 (40 GB)
 
-One session, 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md).
+Session 1: 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Session 2 (the re-run with the original references): 2 renders, 2.21 CU. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md).
 
 | Clip | Draft only (`omni`) | `omni_hd` (draft + 720p) | Compute units (`omni_hd`) |
 |---|---:|---:|---:|
@@ -120,19 +120,27 @@ One session, 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64
 
 The second sampling is 54% of a 15 s job. `--refine-steps 3` cuts a 15 s job from 665 s to 582 s.
 
-**30 s combat test** (two 15 s Ref2VA segments from h3-combat-impact, same prompts as the original pipeline):
+**30 s combat test** (two 15 s Ref2VA segments from h3-combat-impact; prompts byte-identical, original reference images):
 
-| | This repo | Original (local 8 GB GPU) |
+| | This repo | Original showcase (local 8 GB GPU, 16-step `high`) |
 |---|---:|---:|
-| Part 1 motion energy / end-over-mid | 25.6 / 85% | 28.2 / 96% |
-| Part 2 motion energy / end-over-mid | 26.0 / 75% | 28.1 / 93% |
+| Part 1 motion energy / end-over-mid | 24.7 / 93% | 28.2 / 96% |
+| Part 2 motion energy / end-over-mid | 28.3 / 81% | 28.1 / 93% |
 | Quiet talking portraits, for scale | 1.4-2.1 | - |
+
+**Reference images decide a lot.** My first run used two images I generated from the character text; the draft drew both fighters as Kai in one shot and the whole result looked weaker. Re-running the same prompts and seed with the original two images fixed that. The original pipeline is also a different recipe (16 steps, one pass, no distilled model), so expect a similar look, not the same shots. Side-by-side frames and details: [`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments).
+
+<p align="center">
+  <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="Part 1 frames: the h3-combat-impact showcase on rows 1 and 3, this repo on rows 2 and 4" width="92%"><br>
+  <sub>Same prompt. Rows 1 and 3: the original showcase. Rows 2 and 4: this repo, original reference images, 720p.</sub>
+</p>
 
 ## Honest limits
 
-- **Identity can slip in the second sampling.** In one 15 s clip the second fighter turned into a copy of the first for about a second; the draft was correct. `--refine-steps 3` fixed it in that clip ([evidence](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-and-the-fix)), but that is one sample.
+- **Identity can slip in the second sampling.** In one 15 s clip (my generated references) the second fighter turned into a copy of the first for about a second; the draft was correct. `--refine-steps 3` fixed it in that clip ([evidence](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-with-my-generated-references-and-the-refine-3-fix)), but that is one sample.
+- **Weak or look-alike reference images make fighters merge.** With generated references the draft itself drew both fighters as Kai in a collision shot; the original images did not. Use references with clearly different silhouettes and colours.
 - **Identity can also merge in the draft.** In the 5 s clip's last shot (a wide shot, both fighters small), both figures are drawn as Kai already in the 480p draft; the second sampling inherits it. The GIF above stops before that shot. A rough red-pixel check marks a few other low-Vex seconds in other drafts, but those may simply be shots without Vex; not verified.
-- **The 30 s join is a cut, not a continuation.** Two independent 15 s renders: the seam check reports a near-still frame at the join (24% of the surrounding motion).
+- **The 30 s join is a cut, not a continuation.** Two independent 15 s renders: the seam check gives a WARN (64% of the surrounding motion) with the original references, a FAIL (24%) with my generated ones.
 - **Long prompts did not hurt, and did not clearly help.** Four prompts up to 1,525 words and 8,986 characters rendered in full (no truncation in ComfyUI's tokenizer); the hosted API's 7,000-character cap is why they are local-only. One seed per cell, so inconclusive.
 - Every new Colab VM needs one **Google Drive authorization click by a human** (an OAuth popup no agent can open), plus 6-7 minutes of install.
 - Colab does not guarantee an A100; G4 (96 GB) and H100 were not measured.

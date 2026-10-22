@@ -4,13 +4,14 @@ Everything below was measured on 2026-10-22 on one Colab Pro A100 40 GB VM, Comf
 
 Read the numbers with these caveats: one seed per cell, one pair of characters, motion and identity scored by simple scripts plus my own eyes. The first job after any model change includes 1-3 minutes of model loading; that is labelled "cold" where it applies.
 
-## 1. Setup and the session in numbers
+## 1. Setup and the sessions in numbers
 
 | Item | Value |
 |---|---|
 | GPU | Colab A100 40 GB (about 39.5 GiB visible), 83.5 GB system RAM |
 | Fresh-VM install (cell 1, 62 GB of weights) | about 6-7 minutes |
-| Colab compute units, whole session | 376.67 -> 369.64 = **7.03 CU** in about 88 minutes (includes install, waiting, 7 renders) |
+| Colab compute units, session 1 | 376.67 -> 369.64 = **7.03 CU** in about 88 minutes (includes install, waiting, 7 renders) |
+| Colab compute units, session 2 (re-run with the original references) | 369.64 -> 367.43 = **2.21 CU** in about 31 minutes (fresh VM install, 2 renders); log in `benchmarks/cu-log-2.jsonl` |
 | Average burn | 4.8 CU/h measured, the Colab panel states 5.3 CU/h |
 | Per-job CU | 5 s about 0.18, 10 s about 0.5, 15 s about 0.88 (measured 0.87-0.89 for each 15 s job) |
 
@@ -42,26 +43,37 @@ Where the time goes in a 15 s `omni_hd` job (job `s6`, 665 s):
 
 ## 3. The 30-second combat test (two 15 s segments)
 
-Prompts: [`anime-ref2va-part1/part2`](../benchmarks/prompts) from [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact), unchanged. References: two generated adult characters (Kai, Vex) matching that repo's `subject_definitions`. Seed 21. Motion metric is the combat skill's `measure_motion.py` (mean frame-difference energy; "end / mid" = last 2 s over the middle, pass at 60% or more).
+Prompts: [`anime-ref2va-part1/part2`](../benchmarks/prompts) from [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact), **byte-identical to the originals** (checked against the `settings.json` that was sent to the model). Seed 21 for every run here. Motion metric is the combat skill's `measure_motion.py` (mean frame-difference energy; "end / mid" = last 2 s over the middle, pass at 60% or more).
 
-| Clip | Pipeline | Energy | End / mid | Notes |
-|---|---|---:|---:|---|
-| Part 1 | this repo, `omni_hd` | 25.6 | 85% | 665 s |
-| Part 1 | h3-combat-impact showcase (local 8 GB GPU, 1280x704) | 28.2 | 96% | same prompt |
-| Part 2 | this repo, `omni_hd` | 26.0 | 75% | 669 s |
-| Part 2 | h3-combat-impact showcase | 28.1 | 93% | same prompt |
-| Joined 30 s | `ffmpeg -c copy` | 25.9 | 77% | 104 peaks |
-| Earlier Tomie talking portraits (5-15 s) | `omni_hd` | 1.4-2.1 | 64-106% | flagged "too quiet", this is the static baseline |
+I ran it twice, because the first result looked much weaker than the h3-combat-impact showcase:
 
-The two pipelines land within about 10% of each other on energy; ours is a little lower, with a weaker ending on part 2 (75% vs 93%, still above the 60% bar).
+| Run | Reference images | Part 1 energy / end-mid | Part 2 energy / end-mid | Joined 30 s | Seam check |
+|---|---|---:|---:|---:|---|
+| h3-combat-impact showcase | the original two images | 28.2 / 96% | 28.1 / 93% | - | - |
+| **This repo, original reference images** (`o1`, `o2`, refine 3) | the original two images | 24.7 / 93% | 28.3 / 81% | 26.5 / 88% | WARN, 64% |
+| This repo, my first run (`s6`, `s7`) | two images I generated from the text | 25.6 / 85% | 26.0 / 75% | 25.9 / 77% | FAIL, 24% |
+| Same, part 1 with refine 3 (`s11`) | generated | 25.1 / 85% | - | - | - |
+| Earlier Tomie talking portraits (5-15 s), for scale | one generated image | 1.4-2.1 | | | |
 
-Refine 3 (`s11`): 25.1 energy, 85% end / mid, same as refine 4 on both numbers.
+![part 1: showcase (rows 1 and 3) vs this repo with the original references (rows 2 and 4)](../assets/stills/combat-part1-vs-showcase.jpg)
+![part 2: showcase (rows 1 and 3) vs this repo with the original references (rows 2 and 4)](../assets/stills/combat-part2-vs-showcase.jpg)
 
-Seam check (`seam_check.py`) on the A1 -> A2 join: **FAIL**. The seam frame differs by 3.4 against a neighbourhood median of 14.4 (24%), i.e. the join reads as a near-still frame. The two segments are independent generations with no hand-off frame, so a cut is expected; hide it with a cutaway or chain with the last frame as the next first frame.
+Timings with the original references on a fresh VM: part 1 715 s (includes model loading), part 2 569 s.
+
+### Why the first run looked so different, and what is still different
+
+1. **Prompts: identical.** Not the cause.
+2. **Reference images were the largest factor.** With the two images I had generated from the text, the 480p *draft* drew both fighters as Kai in the shot at about 4.7-5.4 s (the two fighters colliding through the fire wall), and the second sampling inherited it. With the original images, the same seed and prompt keeps Kai (blond braid, orange visor) and Vex (white spiky hair, orange outfit) distinct in that shot and in the last frame (checked by eye at 4.7, 5.0, 5.4 and 14.78 s). The set, camera ideas (top-down hangar, the window onto Earth, cables) also match the showcase far more closely.
+3. **The showcase was not rendered by the same pipeline.** Home-machine inspection (read-only) shows the showcase pipeline is FreeVideo, a ComfyUI-based local app. Its quality levels are: `light` = 8 first-pass steps + 3 refine steps (first pass at half size, learned latent up-scale), `medium` = the same with a larger first pass, `high` = **16 steps, one pass, with EasyCache-AV**, `max` = 20 steps. The showcase clip is the `high` run at 1280x704 (the two 15 s anime jobs on that machine were first run at `light`, 960x544). This repo runs an 8-step distilled model (FastH3 Omni) then a short second sampling, so the two are not the same recipe and cannot be expected to match shot for shot.
+4. **What this does not explain:** how much of the remaining difference is the model/step count versus other settings (for example a LoRA). The home machine has combat, camera-motion and speed LoRAs installed, but the saved job specs list none for these clips, so I cannot say they were used. A fair test would render the same references at the same resolution with a non-distilled 16-step Ref2VA; that was not run.
+5. **Smaller visible gap:** the showcase opens with a contact flash at 0.6 s; ours opens with the two fighters still airborne at that moment. Part 2's ending is weaker (81% vs 93%).
+6. **A prompt/reference mismatch exists in the original too:** the prompt says Vex wears red, the original image shows orange; the results follow the image.
+
+Seam check (`seam_check.py`) on the joined 30 s with the original references: **WARN**, the seam frame differs by 9.4 against a neighbourhood median of 14.7 (64%): a small hitch a viewer may notice. With my generated references it was a hard **FAIL** (3.4 vs 14.4, 24%). The two segments are independent generations with no hand-off frame, so a cut is expected either way.
 
 Prompt linter (`validate_prompt.py`) on the shipped examples: 0 FAIL, but both exceed its 820-word budget (1,207 and 1,135 words), as do all of our long prompts.
 
-### Identity loss at the end of part 1, and the fix
+### Identity loss at the end of part 1 (with my generated references), and the refine-3 fix
 
 Job `s6` (refine 4): in the last second Vex turns into a second Kai after the second sampling, although the draft was correct. A red-pixel probe (`tools/identity_probe.py`) flags exactly that second (red share 1.20% in the draft, 0.43% after). With `--refine-steps 3` (job `s11`) the probe flags nothing and the frame keeps Vex. One sample, so treat 3 as the safer default for two-character fights, not as proof.
 

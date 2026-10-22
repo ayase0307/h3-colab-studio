@@ -1,0 +1,23 @@
+{
+ "id": "o1-part1-origrefs",
+ "mode": "omni_hd",
+ "draft_size": "832x480",
+ "seconds": 15.1,
+ "seed": 21,
+ "total_s": 714.77,
+ "stages_s": {
+  "load+draft": 299.4,
+  "decode draft": 26.9,
+  "up-res": 73.9,
+  "refine": 270.0,
+  "final decode+mux": 44.3
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 18.2,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 24.67
+ }
+}

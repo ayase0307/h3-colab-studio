@@ -19,7 +19,7 @@
   <img alt="MiniMax H3" src="https://img.shields.io/badge/MiniMax-H3%20%2F%20FastH3%20Omni-ff5a36">
   <img alt="Agent skill" src="https://img.shields.io/badge/agent-skill-8A2BE2">
   <img alt="Tests" src="https://img.shields.io/badge/tests-5%20scripts%20passing-2ea44f">
-  <img alt="Measured" src="https://img.shields.io/badge/%E5%AF%A6%E6%B8%AC-7%20%E6%94%AF%20%C2%B7%207.0%20CU-0a7">
+  <img alt="Measured" src="https://img.shields.io/badge/%E5%AF%A6%E6%B8%AC-9%20%E6%94%AF%20%C2%B7%209.2%20CU-0a7">
 </p>
 
 ---
@@ -50,14 +50,14 @@
     <td align="center">
       <img src="assets/gifs/combat-part1.gif" alt="太空站貨艙混戰，30 秒戰鬥的第一段"><br>
       <b>30 秒戰鬥・第一段</b> · <a href="assets/videos/combat-30s-720p.mp4">30 秒 MP4</a> · <a href="benchmarks/prompts/a1-combat-part1-15s.txt">提示詞</a><br>
-      <sub>h3-combat-impact 範例，15 秒 14 鏡 · 665 秒</sub>
+      <sub>h3-combat-impact 範例，15 秒 14 鏡 · 原始參考圖 · 715 秒（新虛擬機）</sub>
     </td>
   </tr>
   <tr>
     <td align="center">
       <img src="assets/gifs/combat-part2.gif" alt="太空站貨艙混戰第二段：特寫與衝擊"><br>
       <b>30 秒戰鬥・第二段</b> · <a href="benchmarks/prompts/a2-combat-part2-15s.txt">提示詞</a><br>
-      <sub>669 秒 · 動作能量 26.0（原流程 28.1）</sub>
+      <sub>569 秒 · 動作能量 28.3（原流程 28.1）</sub>
     </td>
     <td align="center">
       <img src="assets/gifs/draft-vs-final.gif" alt="左：480p 草稿，右：720p 二次取樣"><br>
@@ -67,7 +67,7 @@
   </tr>
 </table>
 
-Kai 與 Vex 的參考圖不放在這個儲存庫（角色設計沿用公開的 Seedance 範例，做法跟 [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact) 一樣）；提示詞裡有完整的外觀描述，你可以自己生成。
+Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedance 範例，做法跟 [h3-combat-impact](https://github.com/ayase0307/h3-combat-impact) 一樣）。30 秒戰鬥片用的是原始兩張圖；廢料場那幾支用的是依提示詞角色文字生成的兩張圖。
 
 ## 為什麼做這個
 
@@ -108,7 +108,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（角色設計沿用公開的 S
 
 ## 在 Colab A100（40 GB）上的實測
 
-一個工作階段、7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。
+第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。
 
 | 長度 | 只出草稿（`omni`） | `omni_hd`（草稿＋720p） | 運算單位（`omni_hd`） |
 |---|---:|---:|---:|
@@ -120,19 +120,27 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（角色設計沿用公開的 S
 
 二次取樣佔 15 秒工作的 54%。`--refine-steps 3` 可以把 15 秒工作從 665 秒降到 582 秒。
 
-**30 秒戰鬥測試**（h3-combat-impact 的兩段 15 秒 Ref2VA 範例，提示詞與原流程相同）：
+**30 秒戰鬥測試**（h3-combat-impact 的兩段 15 秒 Ref2VA 範例；提示詞逐位元相同、使用原始參考圖）：
 
-| | 本儲存庫 | 原流程（本機 8 GB GPU） |
+| | 本儲存庫 | 原展示片（本機 8 GB GPU、16 步 `high`） |
 |---|---:|---:|
-| 第一段 動作能量／結尾對中段 | 25.6 / 85% | 28.2 / 96% |
-| 第二段 動作能量／結尾對中段 | 26.0 / 75% | 28.1 / 93% |
+| 第一段 動作能量／結尾對中段 | 24.7 / 93% | 28.2 / 96% |
+| 第二段 動作能量／結尾對中段 | 28.3 / 81% | 28.1 / 93% |
 | 安靜的說話特寫（對照尺度） | 1.4–2.1 | － |
+
+**參考圖影響很大。** 我第一輪用的是依角色文字自己生成的兩張圖，草稿裡有一鏡把兩位格鬥家都畫成 Kai，整體看起來也弱很多；用同樣的提示詞與 seed 改成原始兩張圖重跑，就解決了。原流程本身也是不同的配方（16 步、單階段、未蒸餾），所以預期的是相近的風格，而不是一模一樣的鏡頭。並排畫面與細節：[`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments)。
+
+<p align="center">
+  <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="第一段畫面：第 1、3 排是 h3-combat-impact 展示片，第 2、4 排是本儲存庫" width="92%"><br>
+  <sub>同一份提示詞。第 1、3 排：原展示片。第 2、4 排：本儲存庫、原始參考圖、720p。</sub>
+</p>
 
 ## 老實說的限制
 
-- **二次取樣可能讓身份滑掉。** 有一支 15 秒影片裡，第二位格鬥家有大約一秒變成第一位的複製品，但草稿是對的。`--refine-steps 3` 在那支影片裡解決了（[證據](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-and-the-fix)），但那只是一個樣本。
+- **二次取樣可能讓身份滑掉。** 有一支 15 秒影片（我生成的參考圖）裡，第二位格鬥家有大約一秒變成第一位的複製品，但草稿是對的。`--refine-steps 3` 在那支影片裡解決了（[證據](docs/benchmarks.md#identity-loss-at-the-end-of-part-1-with-my-generated-references-and-the-refine-3-fix)），但那只是一個樣本。
+- **參考圖太弱或太像，格鬥家會合併。** 用我生成的參考圖時，草稿本身在一個碰撞鏡頭把兩人都畫成 Kai；原始參考圖就沒有。請用輪廓與顏色差異明顯的參考圖。
 - **身份也可能在草稿階段就合併。** 5 秒那支的最後一鏡（廣角、兩人都很小），480p 草稿裡兩個人影就已經都畫成 Kai，二次取樣只是繼承它。上面的 GIF 在那一鏡之前就停了。粗略的紅色像素檢查在其他草稿也標出少數 Vex 偏少的秒數，但那可能只是沒有 Vex 的鏡頭，未經驗證。
-- **30 秒的接點是剪接，不是延續。** 兩段獨立的 15 秒渲染：接縫檢查顯示接點是近乎靜止的一格（只有周圍動作的 24%）。
+- **30 秒的接點是剪接，不是延續。** 兩段獨立的 15 秒渲染：接縫檢查用原始參考圖是 WARN（周圍動作的 64%），用我生成的參考圖是 FAIL（24%）。
 - **長提示詞沒有傷害，也沒有明顯幫助。** 四份提示詞最長 1,525 字、8,986 字元，都完整渲染（ComfyUI 的分詞器沒有截斷）；hosted API 的 7,000 字元上限，是它們只能在本機跑的原因。每格只有一個 seed，所以結論不確定。
 - 每台新的 Colab 虛擬機都需要**真人點一次 Google Drive 授權**（OAuth 彈窗，任何 agent 都無法代點），外加 6–7 分鐘安裝。
 - Colab 不保證給你 A100；G4（96 GB）與 H100 沒有量測。
