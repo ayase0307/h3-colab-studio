@@ -348,7 +348,7 @@ def clean_config(value, need_refs=True):
         upscale, second_steps, second_denoise = float(value.get("upscale", 2.0)), int(value.get("second_steps", 7)), float(value.get("second_denoise", 0.22))
         if not 1.25 <= upscale <= 2.5 or not 3 <= second_steps <= 12 or not 0.05 <= second_denoise <= 0.6:
             raise ValueError("ayase 的 upscale 請設為 1.25 至 2.5、second_steps 3 至 12、second_denoise 0.05 至 0.6。")
-        extra = dict(upscale=upscale, second_steps=second_steps, second_denoise=second_denoise,
+        extra = dict(tiled=bool(value.get("tiled", False)), upscale=upscale, second_steps=second_steps, second_denoise=second_denoise,
                      target_width=round(width * upscale / 32) * 32, target_height=round(height * upscale / 32) * 32)
     return dict(**extra, shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
 
@@ -412,7 +412,14 @@ def _add_ayase_pass(graph, config, prefix):
     graph["46"] = {"class_type": "BasicGuider", "inputs": {"model": ["16", 0], "conditioning": ["45", 0]}}
     graph["47"] = {"class_type": "BasicScheduler", "inputs": {"model": ["16", 0], "scheduler": "simple", "steps": config["second_steps"], "denoise": config["second_denoise"]}}
     graph["49"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": (config["seed"] + 1) % 2**32}}
-    graph["50"] = {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["49", 0], "guider": ["46", 0], "sampler": ["10", 0], "sigmas": ["47", 0], "latent_image": ["42", 0]}}
+    if config.get("tiled"):
+        # Same pack as the upscaler: spatial tiles (the first-pass size) and 243-frame temporal chunks with overlap, as in the user's local single-segment workflow.
+        graph["55"] = {"class_type": "MMH3TemporalSplitParamsV10", "inputs": {"chunk_frames": 243, "temporal_overlap_frames": 22, "anchor_strength": 0.999, "motion_anchor_frames": "22", "identity_anchor_frames": 24}}
+        graph["56"] = {"class_type": "MMH3SpatialSplitParamsV10", "inputs": {"tile_width": config["width"], "tile_height": config["height"], "overlap_ratio": 0.25, "fade_ratio": 0.5, "min_tile_size": 256, "seam_denoise": 0.7}}
+        graph["50"] = {"class_type": "MMH3SplitUpscale", "inputs": {"model": ["16", 0], "conditioning": ["45", 0], "latent": ["42", 0], "noise": ["49", 0], "sampler": ["10", 0], "sigmas": ["47", 0], "cfg": 1.0,
+                       "temporal_split_param": ["55", 0], "spatial_split_param": ["56", 0], "seam_polish": "auto", "color_match": True}}
+    else:
+        graph["50"] = {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["49", 0], "guider": ["46", 0], "sampler": ["10", 0], "sigmas": ["47", 0], "latent_image": ["42", 0]}}
     graph["52"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["50", 0]}}
     graph["53"] = {"class_type": "LTXVConcatAVLatent", "inputs": {"video_latent": ["52", 0], "audio_latent": ["40", 1]}}
     graph["13"]["inputs"]["samples"] = ["53", 0]

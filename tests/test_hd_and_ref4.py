@@ -68,6 +68,11 @@ assert ga["45"]["inputs"]["width"] == 1920 and "repair_instruction" in ga["45"][
 for bad in ({"upscale": 3.0}, {"second_steps": 2}, {"second_denoise": 0.9}, {"shift": True}):
     try: m.clean_config({"prompt": "x", "mode": "ayase", "ref_1": "h3ref_a.png", **bad}); raise SystemExit("ayase accepted " + str(bad))
     except ValueError: pass
+# ayase tiled: the sampler is MMH3SplitUpscale with temporal + spatial params (tile = first-pass size), same sigmas/noise/conditioning
+at = m.clean_config({"prompt": "x", "mode": "ayase", "tiled": True, "seconds": "15", "ref_1": "h3ref_a.png"}); gt = m.graph_for(at, "int8enc"); wired(gt)
+assert gt["50"]["class_type"] == "MMH3SplitUpscale" and gt["50"]["inputs"]["latent"] == ["42", 0] and gt["50"]["inputs"]["sigmas"] == ["47", 0] and gt["50"]["inputs"]["conditioning"] == ["45", 0]
+assert gt["56"]["inputs"]["tile_width"] == 960 and gt["56"]["inputs"]["tile_height"] == 544 and gt["55"]["inputs"]["chunk_frames"] == 243 and gt["52"]["inputs"]["av_latent"] == ["50", 0]
+assert ga["50"]["class_type"] == "SamplerCustomAdvanced" and "55" not in ga
 # plain omni draft at p480 still the old shape
 o = m.clean_config({"prompt": "x", "mode": "omni", "size": "p480", "seconds": "15", "ref_1": "h3ref_a.png"}); go = m.graph_for(o)
 assert "40" not in go and go["13"]["inputs"]["samples"] == ["12", 0] and (o["width"], o["height"], o["frames"]) == (832, 480, 362)

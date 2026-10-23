@@ -89,6 +89,8 @@ def cmd_submit(a):
         cfg["steps"] = a.steps
     if a.shift:
         cfg["shift"] = True
+    if a.tiled:
+        cfg["tiled"] = True
     for key in ("upscale", "second_steps", "second_denoise"):
         if getattr(a, key) is not None:
             cfg[key] = getattr(a, key)
@@ -241,7 +243,7 @@ def main():
     s = sub.add_parser("submit"); s.set_defaults(fn=cmd_submit)
     s.add_argument("name"); s.add_argument("--prompt-file"); s.add_argument("--prompt")
     s.add_argument("--mode", default="omni_hd", choices=MODES); s.add_argument("--seconds", default="5", choices=("5", "8", "10", "15"))
-    s.add_argument("--seed", type=int, default=-1); s.add_argument("--size"); s.add_argument("--sampler"); s.add_argument("--refine-steps", type=int); s.add_argument("--steps", type=int); s.add_argument("--upscale", type=float); s.add_argument("--second-steps", type=int); s.add_argument("--second-denoise", type=float); s.add_argument("--shift", action="store_true", help="ref4/ref2va/ref2va_hd: add MiniMaxH3SigmaShift 12/3")
+    s.add_argument("--seed", type=int, default=-1); s.add_argument("--size"); s.add_argument("--sampler"); s.add_argument("--refine-steps", type=int); s.add_argument("--steps", type=int); s.add_argument("--tiled", action="store_true", help="ayase: tiled/segmented second pass (MMH3SplitUpscale)"); s.add_argument("--upscale", type=float); s.add_argument("--second-steps", type=int); s.add_argument("--second-denoise", type=float); s.add_argument("--shift", action="store_true", help="ref4/ref2va/ref2va_hd: add MiniMaxH3SigmaShift 12/3")
     s.add_argument("--ref", action="append", default=[], help="reference image, repeat for ref_1..ref_9 (order = <Picture N>)")
     w = sub.add_parser("wait"); w.set_defaults(fn=cmd_wait); w.add_argument("names", nargs="+"); w.add_argument("--timeout", type=float, default=5400)
     v = sub.add_parser("verify"); v.set_defaults(fn=cmd_verify); v.add_argument("name"); v.add_argument("--out", default="results")
