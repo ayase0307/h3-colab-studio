@@ -108,6 +108,40 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
   <sub>左：480p 草稿拉伸到 720p。右：二次取樣之後。同一格。</sub>
 </p>
 
+## A100 兩模式配置與實測（2026-10-24）
+
+硬體：Colab **A100-SXM4-40GB**，分支 `fix/a100-quality`，約 **5.3 CU/小時**。第 ① 格（環境準備）約 4.5–5.3 分鐘。整批測試共用掉約 **3.1 CU**（334.44 → 331.34）。
+
+| 路線 | 品質選項 | 輸出 | 模型 | 取樣 |
+|---|---|---|---|---|
+| **快速出片** | 極速 · Turbo 4 步（768p 調校） | 橫向 960×544，24 fps | INT8 主模型 + INT8 文字編碼器 + fp16 影片 VAE | euler / simple |
+| **高清** | Omni · 參考圖生成（8 步） | 橫向・高解析度 1344×768，**單次直出**（不是 `omni_hd` 草稿＋精修） | INT8 主模型 + INT8 文字編碼器 + fp16 影片 VAE | euler / simple，cfg 1.0 |
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="assets/gifs/a100-fast-5s.gif" alt="快速出片 5 秒，960×544"><br><sub>快速出片 · 5 秒 · 960×544</sub></td>
+    <td align="center" width="33%"><img src="assets/gifs/a100-hq-5s.gif" alt="高清 Omni 5 秒，九尾狐，1344×768"><br><sub>高清 Omni · 5 秒 · 1344×768</sub></td>
+    <td align="center" width="33%"><img src="assets/gifs/a100-hq-10s.gif" alt="高清 Omni 10 秒，1344×768"><br><sub>高清 Omni · 10 秒 · 1344×768</sub></td>
+  </tr>
+</table>
+<sub>GIF 為 480px、12 fps、取前段約 4 秒，畫質遠低於原始 MP4。</sub>
+
+| 路線 | 長度 | 冷啟動（第一支） | 暖機後 | GPU RAM（Colab 面板） |
+|---|---:|---:|---:|---:|
+| 快速 · Turbo 4 步 960×544 | 5 秒 | 1 分 38 秒 | **31 秒** | 約 37–38 / 40 GB |
+| 快速 · Turbo 4 步 960×544 | 10 秒 | – | 1 分 20 秒 | 約 36–38 / 40 GB |
+| 快速 · Turbo 4 步 960×544 | 15 秒 | – | 2 分 25 秒 | 約 36–38 / 40 GB |
+| 高清 · Omni 8 步 1344×768 | 5 秒 | 4 分 56 秒 | **3 分 28 秒** | 約 37.8 / 40 GB |
+| 高清 · Omni 8 步 1344×768 | 10 秒 | – | 7 分 11 秒 | 約 36–38 / 40 GB |
+| 高清 · Omni 8 步 1344×768 | 15 秒 | – | ❌ 失敗：約 10 分 37 秒後 Runtime died（GPU RAM 約 39.1 / 40 GB，推測 OOM） | – |
+| 參考：Turbo 8 步 1344×768（純文字） | 5 秒 | 5 分 00 秒 | – | – |
+
+<sub>GPU RAM 是任務剛結束時面板的讀數（含 PyTorch 快取），不是精確峰值。</sub>
+
+注意事項：
+- **高清 15 秒**在 40 GB 卡上會爆顯存：請改用 A100 80GB（可選「未量化」），或切成每段 ≤10 秒再接起來。
+- A100 不支援 FP4，**不要選 NVFP4 文字編碼器**。
+
 ## 在 Colab A100（40 GB）上的實測
 
 第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。第三、四輪（未蒸餾對照組）見 [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)。

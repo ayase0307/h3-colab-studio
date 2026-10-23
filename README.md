@@ -108,6 +108,27 @@ The second pass is the same distilled model run on only the tail of its own 8-st
   <sub>Left: the 480p draft stretched to 720p. Right: after the second sampling. Same frame.</sub>
 </p>
 
+## A100 two-path setup and measurements (2026-10-24)
+
+Colab **A100-SXM4-40GB**, branch `fix/a100-quality`, about 5.3 CU/h; cell ① setup about 4.5-5.3 min; whole batch about **3.1 CU**. Both paths: INT8 model + INT8 text encoder + fp16 video VAE, euler/simple.
+
+- **Fast:** 極速 · Turbo 4 步（768p 調校）, landscape 960×544.
+- **HQ:** Omni · reference image, 8 steps, landscape high-res 1344×768, single pass (not `omni_hd` draft + refine).
+
+<table><tr>
+<td align="center" width="33%"><img src="assets/gifs/a100-fast-5s.gif" alt="Fast 5 s, 960x544"><br><sub>Fast · 5 s</sub></td>
+<td align="center" width="33%"><img src="assets/gifs/a100-hq-5s.gif" alt="HQ Omni 5 s, 1344x768"><br><sub>HQ Omni · 5 s</sub></td>
+<td align="center" width="33%"><img src="assets/gifs/a100-hq-10s.gif" alt="HQ Omni 10 s, 1344x768"><br><sub>HQ Omni · 10 s</sub></td>
+</tr></table>
+
+| Path | 5 s cold | 5 s warm | 10 s | 15 s |
+|---|---:|---:|---:|---:|
+| Fast, Turbo 4-step 960×544 | 1m38s | 31s | 1m20s | 2m25s |
+| HQ, Omni 8-step 1344×768 | 4m56s | 3m28s | 7m11s | failed: runtime died after ~10m37s (GPU RAM ~39.1/40 GB, likely OOM) |
+| Ref: Turbo 8-step 1344×768 text-only | 5m00s | - | - | - |
+
+GPU RAM read about 36-38 GB after jobs. HQ 15 s needs an A100 80GB (unquantized) or ≤10 s segments. Do not pick the NVFP4 text encoder on A100 (no FP4).
+
 ## Measured on a Colab A100 (40 GB)
 
 Session 1: 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Session 2 (the re-run with the original references): 2 renders, 2.21 CU. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md). Sessions 3-4 (non-distilled controls): see [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling).
