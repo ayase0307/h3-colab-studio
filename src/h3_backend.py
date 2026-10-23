@@ -583,18 +583,34 @@ def _worker(job_id, config):
             listener = threading.Thread(target=_listen_progress, args=(socket, stopped, job_id, prompt_id), daemon=True)
             listener.start()
         min_free = None
+        busy_since = None
         while time.monotonic() - started < 5400:
             try:  # lowest free VRAM seen during the job shows directly whether a long/HD clip fits this GPU
                 device = _request("GET", "/system_stats", timeout=5)["devices"][0]
                 free = device["torch_vram_free"] if "torch_vram_free" in device else device["vram_free"]
                 min_free = free if min_free is None else min(min_free, free)
                 vram_total = device["vram_total"]
+                _update(job_id, min_vram_free_gib=round(min_free / 2**30, 1), vram_total_gib=round(vram_total / 2**30, 1))
             except Exception:
                 pass
             if _jobs[job_id]["cancel"]:
                 _request("POST", "/interrupt")
                 raise InterruptedError("已中止生成。")
-            history = _request("GET", "/history/" + prompt_id)
+            try:  # a long decode/upscale can keep the server from answering for a while; that is not a failure unless it exits
+                history = _request("GET", "/history/" + prompt_id, timeout=90)
+                busy_since = None
+            except Exception as exc:
+                import requests
+                if not isinstance(exc, requests.exceptions.RequestException):
+                    raise
+                if _process is not None and _process.poll() is not None:
+                    raise RuntimeError("生成引擎已結束（可能是記憶體不足）。" + (BASE / "comfy.log").read_text(errors="replace")[-1500:])
+                busy_since = busy_since or time.monotonic()
+                if time.monotonic() - busy_since > 900:
+                    raise RuntimeError("生成引擎超過 15 分鐘沒有回應：" + str(exc))
+                _update(job_id, message="生成引擎忙碌中，等待回應")
+                time.sleep(5)
+                continue
             result = history.get(prompt_id)
             if result:
                 if result.get("status", {}).get("status_str") == "error":
@@ -645,7 +661,9 @@ def _worker(job_id, config):
         _update(job_id, state="cancelled", message=str(exc))
     except Exception as exc:
         hint = " 若記憶體不足，請以 5 秒・橫式・Turbo 重試。" if "memory" in str(exc).lower() else ""
-        _update(job_id, state="error", message=str(exc) + hint)
+        seen = _jobs[job_id]
+        vram = f" [VRAM 最低剩餘 {seen['min_vram_free_gib']} / {seen['vram_total_gib']} GiB]" if seen.get("min_vram_free_gib") is not None else ""
+        _update(job_id, state="error", message=str(exc) + hint + vram)
     finally:
         stopped.set()
         if socket:
