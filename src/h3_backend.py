@@ -39,13 +39,20 @@ OMNI_FILES["int8enc"] = OMNI_FILES["int8"]
 OMNI_DISK_GIB = {"int8": 22, "int8enc": 22, "full": 42}
 MAX_REFS = 9
 IMAGE_NAMES = ("first_frame", "last_frame") + tuple(f"ref_{i}" for i in range(1, MAX_REFS + 1))
-SAMPLERS = {"res_multistep+simple": ("res_multistep", "simple"), "euler+beta": ("euler", "beta")}
+SAMPLERS = {"res_multistep+simple": ("res_multistep", "simple"), "euler+beta": ("euler", "beta"), "euler+simple": ("euler", "simple")}
 PROFILES["int8enc"] = {**PROFILES["int8"], "label": "INT8（INT8 文字編碼器）", "free_disk": 70,
                        "files": {**PROFILES["int8"]["files"], "text": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"}}
 # Ref2VA INT8 + ref2v turbo 4-step LoRA: the alternative draft engine to compare against Omni.
 REF4_FILES = {"model": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors", "lora": "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"}
 REF4_DISK_GIB = 23
-REF_MODES = ("omni", "omni_hd", "ref4", "ref2va", "ref2va_hd")
+# Ayase Studio recipe: HyperFlow 8-step LoRA, 8-step draft at ~0.5 MP, neural latent upscale, low-denoise second pass.
+AYASE_LORA = ("drbaph/MiniMax-H3-Turbo-Lora-ComfyUI", "bb2bc497cbaca89dadd0bcf1856eed4f8275be20", "minimax_h3_hyperflow_8step_v1.0_comfyui_pruned_bf16_resized_avg_rank_20_bf16.safetensors")
+AYASE_UPSCALER = ("LBH-123-AI/Minimax_h3_latent_Upscaler", "3f941d5d182014dd5c0a5e16330420ee2d4aa0c6", "minimax_h3_latent_upscaler_3d_conv_v1/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors")
+AYASE_UPSCALER_NAME = "minimax_h3_latent_upscaler_3d_fp16.safetensors"  # the node only lists files whose name has "3d" and "fp16"
+AYASE_NODES = ("https://github.com/LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler.git", "40316cf008b2fd8663263270669eb4da23f89d2c")  # MIT, user-approved, pinned
+AYASE_DISK_GIB = 2
+AYASE_REPAIR = "修復一採中的結構畸形、重影、重複或缺失部件、破損邊緣、紋理斷裂和閃爍；嚴格保持原劇情時序、運鏡、構圖、主體身份、服裝、動作、場景、畫面風格和正常區域不變。"
+REF_MODES = ("omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "ayase")
 HD_MODES = ("omni_hd", "ref2va_hd")
 # draft size -> (render w, render h, crop w, crop h, crop x, crop y). 720 is not on H3's 32-px grid, so render 736 and crop in-graph.
 HD_TARGETS = {"p480": (1280, 736, 1280, 720, 0, 8), "p480v": (736, 1280, 720, 1280, 8, 0)}
@@ -189,8 +196,8 @@ def setup(profile="int8", omni=True, ref4=False):
         return None
     if ref4 and profile == "full":
         raise RuntimeError("Ref2VA 4 步草稿目前只支援 INT8 設定。")
-    wanted = list(selected["files"].values()) + ([OMNI_FILES[profile]] if omni else []) + (list(REF4_FILES.values()) if ref4 else [])
-    need_disk = selected["free_disk"] + (OMNI_DISK_GIB[profile] if omni else 0) + (REF4_DISK_GIB if ref4 else 0)
+    wanted = list(selected["files"].values()) + ([OMNI_FILES[profile]] if omni else []) + (list(REF4_FILES.values()) if ref4 else []) + (["loras/" + AYASE_LORA[2], "latent_upscale_models/" + AYASE_UPSCALER_NAME] if ref4 else [])
+    need_disk = selected["free_disk"] + (OMNI_DISK_GIB[profile] if omni else 0) + (REF4_DISK_GIB + AYASE_DISK_GIB if ref4 else 0)
     if info["free_disk_gib"] < need_disk and not all((COMFY / "models" / f).exists() for f in wanted):
         raise RuntimeError(f"首次執行需要至少 {need_disk} GiB 的可用空間。")
     progress = SetupProgress()
@@ -225,6 +232,15 @@ def setup(profile="int8", omni=True, ref4=False):
             progress.update(f"2/3 下載模型中 · {index + 1}/{len(downloads)}", 1 + index / len(downloads))
             script = "from huggingface_hub import hf_hub_download; import sys; hf_hub_download(sys.argv[1],sys.argv[2],revision=sys.argv[3],local_dir=sys.argv[4])"
             _run([sys.executable, "-c", script, repo, name, revision, str(COMFY / "models")], env={**os.environ, "HF_HUB_DISABLE_PROGRESS_BARS": "1", "HF_XET_HIGH_PERFORMANCE": "1"})
+        if ref4:  # Ayase Studio assets ride on the download_ref4 box: HyperFlow LoRA, neural latent upscaler weights and node pack
+            _checkout(AYASE_NODES[0], COMFY / "custom_nodes" / "Comfyui_Minimax_h3_latent_Upscaler", AYASE_NODES[1])
+            script = "from huggingface_hub import hf_hub_download; import sys; hf_hub_download(sys.argv[1],sys.argv[2],revision=sys.argv[3],local_dir=sys.argv[4])"
+            quiet = {**os.environ, "HF_HUB_DISABLE_PROGRESS_BARS": "1", "HF_XET_HIGH_PERFORMANCE": "1"}
+            _run([sys.executable, "-c", script, AYASE_LORA[0], AYASE_LORA[2], AYASE_LORA[1], str(COMFY / "models" / "loras")], env=quiet)
+            target = COMFY / "models" / "latent_upscale_models"
+            _run([sys.executable, "-c", script, AYASE_UPSCALER[0], AYASE_UPSCALER[2], AYASE_UPSCALER[1], str(target)], env=quiet)
+            if not (target / AYASE_UPSCALER_NAME).exists():
+                shutil.copy2(target / AYASE_UPSCALER[2], target / AYASE_UPSCALER_NAME)
         progress.update("3/3 啟動生成引擎中", 2)
         start_server(omni)
         record = {"profile": profile, "profile_label": selected["label"], "comfy_commit": COMFY_COMMIT, "vhs_commit": VHS_COMMIT, "model_revision": MODEL_REVISION, "omni": omni, "ref4": ref4, "hardware": hardware(), "setup_seconds": round(time.monotonic() - progress.started, 2)}
@@ -276,7 +292,7 @@ def clean_config(value, need_refs=True):
     seconds = str(value.get("seconds", "5"))
     mode = value.get("mode", "turbo")
     size = value.get("size", "p480" if mode in HD_MODES else "landscape")
-    if size not in SIZES or seconds not in FRAMES or mode not in ("turbo", "turbo4", "omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "quality"):
+    if size not in SIZES or seconds not in FRAMES or mode not in ("turbo", "turbo4", "omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "ayase", "quality"):
         raise ValueError("請確認畫面比例、長度與品質設定。")
     if mode == "ref2va" and "size" not in value:
         size = "p720"
@@ -287,7 +303,7 @@ def clean_config(value, need_refs=True):
         refine_steps = 8  # last 8 of the 20-step schedule
     if not 2 <= refine_steps <= (12 if mode == "ref2va_hd" else 6):
         raise ValueError("refine_steps 請設為 2 至 6（ref2va_hd 可到 12）。")
-    steps = {"turbo": 8, "turbo4": 4, "omni": 8, "omni_hd": 8, "ref4": 4}.get(mode) or int(value.get("steps", 20))
+    steps = {"turbo": 8, "turbo4": 4, "omni": 8, "omni_hd": 8, "ref4": 4, "ayase": 8}.get(mode) or int(value.get("steps", 20))
     if mode in ("ref2va", "ref2va_hd") and not 12 <= steps <= 30:  # official template default 20; audio needs 12+
         raise ValueError("ref2va 的步數請設為 12 至 30。")
     if mode == "ref2va_hd" and refine_steps >= steps:
@@ -303,7 +319,7 @@ def clean_config(value, need_refs=True):
     if seed == -1:
         seed = secrets.randbelow(2**32)
     width, height = SIZES[size]
-    sampler = value.get("sampler", "res_multistep+simple")
+    sampler = value.get("sampler", "euler+simple" if mode == "ayase" else "res_multistep+simple")
     if sampler not in SAMPLERS:
         raise ValueError("sampler 只能是 " + " 或 ".join(SAMPLERS) + "。")
     images = {}
@@ -320,14 +336,21 @@ def clean_config(value, need_refs=True):
             raise ValueError("參考圖片編號必須從 ref_1 開始連續（ref_N 對應提示詞裡的 <Picture N>）。")
         refs = [images[k] for k in IMAGE_NAMES[2:] if k in images] or [images[k] for k in IMAGE_NAMES[:2] if k in images]
         if not refs and need_refs:
-            raise ValueError("參考圖模式（omni、omni_hd、ref4、ref2va、ref2va_hd）至少需要一張參考圖片。")
+            raise ValueError("參考圖模式（omni、omni_hd、ref4、ref2va、ref2va_hd、ayase）至少需要一張參考圖片。")
         images = {"refs": refs}
     else:
         images = {k: v for k, v in images.items() if k in IMAGE_NAMES[:2]}
     shift = bool(value.get("shift", False))
     if shift and mode not in ("ref4", "ref2va", "ref2va_hd"):
         raise ValueError("shift 只能用在 ref4、ref2va、ref2va_hd（Omni 本來就有 shift）。")
-    return dict(shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
+    extra = {}
+    if mode == "ayase":
+        upscale, second_steps, second_denoise = float(value.get("upscale", 2.0)), int(value.get("second_steps", 7)), float(value.get("second_denoise", 0.22))
+        if not 1.25 <= upscale <= 2.5 or not 3 <= second_steps <= 12 or not 0.05 <= second_denoise <= 0.6:
+            raise ValueError("ayase 的 upscale 請設為 1.25 至 2.5、second_steps 3 至 12、second_denoise 0.05 至 0.6。")
+        extra = dict(upscale=upscale, second_steps=second_steps, second_denoise=second_denoise,
+                     target_width=round(width * upscale / 32) * 32, target_height=round(height * upscale / 32) * 32)
+    return dict(**extra, shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
 
 
 def upload_image(data_url, _filename="image"):
@@ -374,12 +397,38 @@ def _add_refine_pass(graph, config, sampler_name, prefix):
     graph["60"] = {"class_type": "VHS_VideoCombine", "inputs": {"images": ["41", 0], "frame_rate": 24, "loop_count": 0, "filename_prefix": prefix + "_draft", "format": "video/h264-mp4", "pix_fmt": "yuv420p", "crf": 18, "save_metadata": False, "trim_to_audio": False, "pingpong": False, "save_output": True}}
 
 
+def _add_ayase_pass(graph, config, prefix):
+    """Ayase Studio second sampling: split the AV latent, neural-upscale the video half, re-noise with a new seed and run a
+    partial-denoise pass at the target size (BasicScheduler denoise = the studio's sigma tail), then put the first-pass audio back."""
+    w2, h2 = config["target_width"], config["target_height"]
+    graph["40"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["12", 0]}}
+    graph["41"] = {"class_type": "MinimaxH3LatentUpscaler3D", "inputs": {"latent": ["40", 0], "model_name": AYASE_UPSCALER_NAME, "mode": "target dimensions", "mode.width": w2, "mode.height": h2,
+                   "align": 32, "enable_temporal_chunking": True, "force_unload": True, "device": "cuda", "precision": "fp16"}}
+    graph["42"] = {"class_type": "LTXVConcatAVLatent", "inputs": {"video_latent": ["41", 0], "audio_latent": ["40", 1]}}
+    refs = {"clip": ["3", 0], "vae": ["4", 0], "audio_vae": ["5", 0], "prompt": config["prompt"] + "\n\nrepair_instruction:\n" + AYASE_REPAIR, "width": w2, "height": h2, "length": config["frames"], "ref_image_size": "match"}
+    for index in range(len(config["refs"])):
+        refs[f"ref_images.ref_image_{index}"] = [str(30 + index), 0]
+    graph["45"] = {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": refs}
+    graph["46"] = {"class_type": "BasicGuider", "inputs": {"model": ["16", 0], "conditioning": ["45", 0]}}
+    graph["47"] = {"class_type": "BasicScheduler", "inputs": {"model": ["16", 0], "scheduler": "simple", "steps": config["second_steps"], "denoise": config["second_denoise"]}}
+    graph["49"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": (config["seed"] + 1) % 2**32}}
+    graph["50"] = {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["49", 0], "guider": ["46", 0], "sampler": ["10", 0], "sigmas": ["47", 0], "latent_image": ["42", 0]}}
+    graph["52"] = {"class_type": "LTXVSeparateAVLatent", "inputs": {"av_latent": ["50", 0]}}
+    graph["53"] = {"class_type": "LTXVConcatAVLatent", "inputs": {"video_latent": ["52", 0], "audio_latent": ["40", 1]}}
+    graph["13"]["inputs"]["samples"] = ["53", 0]
+    graph["14"]["inputs"]["samples"] = ["53", 0]
+    graph["54"] = {"class_type": "VAEDecode", "inputs": {"samples": ["40", 0], "vae": ["4", 0]}}
+    graph["60"] = {"class_type": "VHS_VideoCombine", "inputs": {"images": ["54", 0], "frame_rate": 24, "loop_count": 0, "filename_prefix": prefix + "_draft", "format": "video/h264-mp4", "pix_fmt": "yuv420p", "crf": 18, "save_metadata": False, "trim_to_audio": False, "pingpong": False, "save_output": True}}
+
+
 def graph_for(config, profile="int8", prefix="h3"):
     files = {k: Path(v).name for k, v in PROFILES[profile]["files"].items()}
     if config["mode"] in ("omni", "omni_hd"):
         files["model"] = Path(OMNI_FILES[profile]).name
-    if config["mode"] in ("ref4", "ref2va", "ref2va_hd"):
+    if config["mode"] in ("ref4", "ref2va", "ref2va_hd", "ayase"):
         files["model"], files["lora"] = (Path(v).name for v in REF4_FILES.values())
+    if config["mode"] == "ayase":
+        files["lora"] = AYASE_LORA[2]
     sampler_name, scheduler = SAMPLERS[config.get("sampler", "res_multistep+simple")]
     graph = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": files["model"], "weight_dtype": "default"}},
@@ -404,6 +453,11 @@ def graph_for(config, profile="int8", prefix="h3"):
         graph["2"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": files["lora"], "strength_model": 1.0}}
         graph["8"]["inputs"]["model"] = ["2", 0]
         graph["11"]["inputs"]["model"] = ["2", 0]
+    if config["mode"] == "ayase":  # HyperFlow LoRA, then video/audio shift 12/3 (the sigma grid HyperFlow was trained on)
+        graph["2"] = {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": files["lora"], "strength_model": 1.0}}
+        graph["16"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": ["2", 0], "shift_video": 12.0, "shift_audio": 3.0}}
+        graph["8"]["inputs"]["model"] = ["16", 0]
+        graph["11"]["inputs"]["model"] = ["16", 0]
     if config["mode"] in ("omni", "omni_hd"):
         # FastH3 Omni is already 8-step distilled: no turbo LoRA, video/audio shift 12/3 as its README says.
         graph["16"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": ["1", 0], "shift_video": 12.0, "shift_audio": 3.0}}
@@ -421,6 +475,8 @@ def graph_for(config, profile="int8", prefix="h3"):
             graph["7"]["inputs"][f"ref_images.ref_image_{index}"] = [str(30 + index), 0]
     if config["mode"] in HD_MODES:
         _add_refine_pass(graph, config, sampler_name, prefix)
+    if config["mode"] == "ayase":
+        _add_ayase_pass(graph, config, prefix)
     for number, key in (("20", "first_frame"), ("21", "last_frame")):
         if config.get(key):
             graph[number] = {"class_type": "LoadImage", "inputs": {"image": config[key]}}
@@ -478,7 +534,7 @@ def submit(config):
     if config["mode"] in ("omni", "omni_hd") and not json.loads((BASE / "setup.json").read_text()).get("omni"):
         raise RuntimeError("尚未下載 FastH3 Omni 模型。請在 ① 勾選「下載 FastH3 Omni」後重新執行。")
     record = json.loads((BASE / "setup.json").read_text())
-    if config["mode"] in ("ref4", "ref2va", "ref2va_hd") and not record.get("ref4"):
+    if config["mode"] in ("ref4", "ref2va", "ref2va_hd", "ayase") and not record.get("ref4"):
         raise RuntimeError("尚未下載 Ref2VA 模型（ref4／ref2va 共用）。請在 ① 勾選「download_ref4」後重新執行。")
     with _lock:
         if _active:

@@ -58,6 +58,16 @@ for mode in ("ref4", "ref2va", "ref2va_hd"):
 assert gs["46"]["inputs"]["model"] == ["16", 0]
 try: m.clean_config({"prompt": "x", "mode": "omni", "shift": True, "ref_1": "h3ref_a.png"}); raise SystemExit("shift accepted on omni")
 except ValueError: pass
+# ayase: HyperFlow LoRA -> shift 12/3 -> 8-step draft at 960x544, neural upscale to 1920x1088, 7-step denoise-0.22 second pass, first-pass audio restored
+a = m.clean_config({"prompt": "x", "mode": "ayase", "seconds": "15", "ref_1": "h3ref_a.png"}); ga = m.graph_for(a, "int8enc"); wired(ga)
+assert (a["width"], a["height"], a["target_width"], a["target_height"], a["steps"], a["sampler"]) == (960, 544, 1920, 1088, 8, "euler+simple"), a
+assert ga["2"]["inputs"]["lora_name"] == m.AYASE_LORA[2] and ga["16"]["inputs"]["model"] == ["2", 0] and ga["8"]["inputs"]["model"] == ["16", 0]
+assert ga["41"]["inputs"]["mode.width"] == 1920 and ga["41"]["inputs"]["mode.height"] == 1088 and ga["47"]["inputs"]["steps"] == 7 and ga["47"]["inputs"]["denoise"] == 0.22
+assert ga["53"]["inputs"]["audio_latent"] == ["40", 1] and ga["13"]["inputs"]["samples"] == ["53", 0] and ga["14"]["inputs"]["samples"] == ["53", 0]
+assert ga["45"]["inputs"]["width"] == 1920 and "repair_instruction" in ga["45"]["inputs"]["prompt"] and ga["49"]["inputs"]["noise_seed"] == (a["seed"] + 1) % 2**32
+for bad in ({"upscale": 3.0}, {"second_steps": 2}, {"second_denoise": 0.9}, {"shift": True}):
+    try: m.clean_config({"prompt": "x", "mode": "ayase", "ref_1": "h3ref_a.png", **bad}); raise SystemExit("ayase accepted " + str(bad))
+    except ValueError: pass
 # plain omni draft at p480 still the old shape
 o = m.clean_config({"prompt": "x", "mode": "omni", "size": "p480", "seconds": "15", "ref_1": "h3ref_a.png"}); go = m.graph_for(o)
 assert "40" not in go and go["13"]["inputs"]["samples"] == ["12", 0] and (o["width"], o["height"], o["frames"]) == (832, 480, 362)

@@ -15,7 +15,7 @@ setup = f'''#@title ① 準備環境並開啟操作畫面（首次約數分鐘�
 model_precision = "INT8＋INT8 文字編碼器（建議）" #@param ["INT8＋INT8 文字編碼器（建議）", "INT8（NVFP4 文字編碼器，較省空間）", "未量化（A100 80GB）"]
 download_omni = True #@param {{type:"boolean"}}
 download_ref4 = True #@param {{type:"boolean"}}
-#@markdown 勾選 download_ref4＝另外下載 Ref2VA INT8 與 4 步 LoRA（約 +23GB），才能用 ref4 草稿模式與 ref2va／ref2va_hd。
+#@markdown 勾選 download_ref4＝另外下載 Ref2VA INT8 與 4 步 LoRA（約 +23GB），才能用 ref4 草稿模式與 ref2va／ref2va_hd／ayase（ayase 另含 HyperFlow LoRA、潛空間放大節點與模型，約 +2GB）。
 #@markdown 勾選＝另外下載 FastH3 Omni（約 +22GB，INT8），才能用 Omni 參考圖模式。
 import sys, types, hashlib
 BACKEND_SOURCE = {backend!r}
