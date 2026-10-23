@@ -28,7 +28,7 @@ MODEL_REVISION = "e5eb578a89295337b8ff433a035929ce0279e0b6"
 COMMON = {"audio": "vae/minimax_h3_audio_vae_fp32.safetensors", "lora": "loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors", "lora4": "loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors"}
 PROFILES = {
     "int8": {"label": "INT8（量化）", "min_vram": 38, "min_ram": 60, "free_disk": 58,
-             "files": {**COMMON, "model": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors", "text": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "video": "vae/minimax_h3_video_vae_int8_convrot.safetensors"}},
+             "files": {**COMMON, "model": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors", "text": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "video": "vae/minimax_h3_video_vae_fp16.safetensors"}},  # fp16 VAE: int8 VAE adds blocky/flicker artifacts, saves <1 GB
     "full": {"label": "BF16 / FP16（非量化）", "min_vram": 75, "min_ram": 120, "free_disk": 120,
              "files": {**COMMON, "model": "diffusion_models/minimax_h3_fl2va_pruned_bf16.safetensors", "text": "text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors", "video": "vae/minimax_h3_video_vae_fp16.safetensors"}},
 }
@@ -56,7 +56,7 @@ REF_MODES = ("omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "ayase")
 HD_MODES = ("omni_hd", "ref2va_hd")
 # draft size -> (render w, render h, crop w, crop h, crop x, crop y). 720 is not on H3's 32-px grid, so render 736 and crop in-graph.
 HD_TARGETS = {"p480": (1280, 736, 1280, 720, 0, 8), "p480v": (736, 1280, 720, 1280, 8, 0)}
-SIZES = {"p480": (832, 480), "p480v": (480, 832), "landscape": (960, 544), "portrait": (544, 960), "square": (768, 768), "native": (1344, 768), "p720": (1280, 704)}
+SIZES = {"p480": (832, 480), "p480v": (480, 832), "landscape": (960, 544), "portrait": (544, 960), "square": (768, 768), "native": (1344, 768), "p720": (1280, 704), "hd": (1280, 736), "hdv": (736, 1280)}  # hd = native 736p single pass, as the RTX 5090 reference clip
 FRAMES = {"5": 124, "8": 192, "10": 243, "15": 362}
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
@@ -291,7 +291,7 @@ def clean_config(value, need_refs=True):
         raise ValueError("請輸入提示詞（16,000 字以內）。")
     seconds = str(value.get("seconds", "5"))
     mode = value.get("mode", "turbo")
-    size = value.get("size", "p480" if mode in HD_MODES else "landscape")
+    size = value.get("size", "p480" if mode in HD_MODES else ("hd" if mode == "omni" else "landscape"))
     if size not in SIZES or seconds not in FRAMES or mode not in ("turbo", "turbo4", "omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "ayase", "quality"):
         raise ValueError("請確認畫面比例、長度與品質設定。")
     if mode == "ref2va" and "size" not in value:
@@ -319,7 +319,7 @@ def clean_config(value, need_refs=True):
     if seed == -1:
         seed = secrets.randbelow(2**32)
     width, height = SIZES[size]
-    sampler = value.get("sampler", "euler+simple" if mode == "ayase" else "res_multistep+simple")
+    sampler = value.get("sampler", "euler+simple" if mode in ("ayase", "omni", "omni_hd", "ref4") else "res_multistep+simple")  # distilled few-step models: first-order euler; multistep history smears motion
     if sampler not in SAMPLERS:
         raise ValueError("sampler 只能是 " + " 或 ".join(SAMPLERS) + "。")
     images = {}
