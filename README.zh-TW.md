@@ -85,6 +85,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
   - `omni_hd`：同一個工作再加 **1280×720 的二次取樣**（見下）。
   - `ref4`：Ref2VA ＋ 4 步 LoRA，草稿約快 1.5 倍（不能拿去精修）。
   - `ref2va`／`ref2va_hd`：官方未蒸餾 Ref2VA（20 步），單階段 1280×704，或 480p 草稿＋720p 二次取樣。畫面較乾淨，但慢 2–3 倍；各只有一次戰鬥測試（[對照組](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)）。
+  - `ayase`：Ayase 式兩段（Ref2VA 剪枝 INT8＋HyperFlow 8 步 LoRA，960×544 草稿，潛空間放大 x2 到 1920×1088，再跑 7 步二採）。5 秒冒煙測試冷啟動 678 秒，肉眼看草稿的紋理被修掉，但約 1.7 秒一格中兩人都像 Kai、白髮的 Vex 不見了；15 秒 1920×1088 失敗，可能是 GPU 顯存不足（未驗證）。詳情見 [ayase](docs/benchmarks.md#ayase-style-mode-ayase-5-s-smoke-test-and-a-failed-15-s-run)。
 - **用 seed 抽卡。** `omni_hd` 內的草稿，和相同 seed、提示詞、參考圖的單獨 `omni` 草稿逐影格相同，所以可以先挑中意的草稿，再精修同一支。
 - **逐工作記錄。** 每個結果都帶階段時間線（載入、草稿、放大、精修、解碼）；`h3q cu` 維護 Colab 運算單位日誌。
 - **命令列與 agent 技能**（`skills/h3-colab-studio`）：Claude Code 或任何讀 SKILL.md 的 agent 都能送件、等待、驗證與回報。

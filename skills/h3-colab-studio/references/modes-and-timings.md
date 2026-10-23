@@ -1,4 +1,4 @@
-# Modes and timings (A100 40 GB, Colab Pro, measured 2026-10-22)
+# Modes and timings (A100 40 GB, Colab Pro, measured 2026-10-22; the `ayase` row was measured 2026-10-23)
 
 Warm = model already loaded. The first job after a model change adds 1-3 minutes. Source: `docs/benchmarks.md` and `benchmarks/records/`.
 
@@ -10,6 +10,7 @@ Warm = model already loaded. The first job after a model change adds 1-3 minutes
 | `ref2va` | Ref2VA INT8, non-distilled, no LoRA, no shift (official r2v template) | 20 (--steps 12-30) | default 1280x704 (p720) | 1-9 | not run | not run | 1,817 s cold ⁴ |
 | `ref2va_hd` | same as ref2va | 20 draft + last 8 (default, my choice, range 2-12) | draft p480, output 1280x720 | 1-9 | not run | not run | 1,412 s cold ⁴ |
 | `turbo` / `turbo4` | FL2VA INT8 + 8/4-step LoRA | 8 / 4 | landscape 960x544 etc. | no | 130 s | - | - |
+| `ayase` | Ref2VA INT8 pruned + HyperFlow 8-step LoRA, SigmaShift 12/3, neural latent upscale | 8 draft + 7 second pass (denoise 0.22) | draft `landscape` 960x544, output 1920x1088 at upscale 2.0 | 1-9 | 678 s cold ⁶ | not run | failed ⁶ |
 | `quality` | FL2VA INT8 | 20-30 | landscape 960x544 etc. | no | slow | - | - |
 
 ¹ from an earlier single-reference session (one reference image, different prompts); ² first job of the two-reference session, includes model loading; ³ derived from `omni_hd` stage times. `turbo` rows are from that earlier session too.
@@ -17,6 +18,8 @@ Warm = model already loaded. The first job after a model change adds 1-3 minutes
 ⁴ one job on a fresh VM (cold), part 1 of the combat test, seed 20261019; both modes need the download_ref4 box ticked in cell ①.
 
 ⁵ one job on a fresh VM (cold), 15 s, p720 (1280x704), seed 20261019, original references (`r3`): conditioning 92 s, sampling 348 s, final decode 35 s, mux 15 s. One sample; no other seed or step count was run.
+
+⁶ `ayase` (`s1`): one 5 s job on a fresh VM (cold), seed 20261019, original references: conditioning 91.4 s, draft sampling 107.8, draft decode 6.9, hd conditioning 16.0, second sampling 403.0, final decode 19.5, mux and save 12.8 (these sum to 657 s; the other ~21 s of the 678 s total is not itemised). Output 1920x1088, 5.17 s. The 15 s run (`r5`, same seed) failed with a read timeout on the local ComfyUI service; the Colab panel showed GPU RAM at 39.2 of 40.0 GB, so memory exhaustion is the likely cause (not verified). One sample; no other seed or setting was run.
 
 Stage split of a 15 s `omni_hd` job (665 s): draft 26%, decode 3%, up-res 11%, second sampling 54%, final decode and mux 7%.
 

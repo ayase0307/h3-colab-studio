@@ -85,6 +85,7 @@ This repo is a notebook plus a small client: your agent drops a job into a Drive
   - `omni_hd`: the same job plus a **second sampling at 1280x720** (details below).
   - `ref4`: Ref2VA + 4-step LoRA, about 1.5x faster drafts (not refinable).
   - `ref2va` / `ref2va_hd`: the official non-distilled Ref2VA (20 steps), one pass at 1280x704 or a 480p draft plus second sampling at 720p. Cleaner but 2-3x slower; one combat test each ([control runs](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)).
+  - `ayase`: Ayase-style two-pass (Ref2VA pruned INT8 + HyperFlow 8-step LoRA, 960x544 draft, neural latent upscale x2 to 1920x1088, 7-step second pass). One 5 s smoke test took 678 s cold; by eye the draft's texture was repaired, but one frame at about 1.7 s showed both fighters looking like Kai (white-haired Vex missing). A 15 s run at 1920x1088 failed, probably from GPU memory (not verified). Details: [ayase](docs/benchmarks.md#ayase-style-mode-ayase-5-s-smoke-test-and-a-failed-15-s-run).
 - **Re-roll by seed.** A draft inside `omni_hd` is frame-identical to a standalone `omni` draft with the same seed, prompt and references, so you can pick a favourite draft and refine exactly that one.
 - **Per-job accounting.** Each result carries a stage timeline (load, draft, up-res, refine, decode); `h3q cu` keeps the Colab compute-unit log.
 - **A CLI and an agent skill** (`skills/h3-colab-studio`) so Claude Code or any SKILL.md-aware agent can submit, wait, verify and report.

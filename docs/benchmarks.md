@@ -1,6 +1,6 @@
 # Benchmarks and test record
 
-Everything below was measured on 2026-10-22 on one Colab Pro A100 40 GB VM, ComfyUI `ce42de5f`, INT8 FastH3 Omni + INT8 text encoder, 24 fps, reference images only (two characters). Raw per-job JSON is in [`benchmarks/records/`](../benchmarks/records), prompts in [`benchmarks/prompts/`](../benchmarks/prompts), the compute-unit log in [`benchmarks/cu-log.jsonl`](../benchmarks/cu-log.jsonl) and [`benchmarks/cu-log-4.jsonl`](../benchmarks/cu-log-4.jsonl) (session 4) and [`benchmarks/cu-log-5.jsonl`](../benchmarks/cu-log-5.jsonl) (session 5) and [`benchmarks/cu-log-6.jsonl`](../benchmarks/cu-log-6.jsonl) (session 6).
+Everything below was measured on 2026-10-22 on one Colab Pro A100 40 GB VM (the `ayase` runs in section 3 were on 2026-10-23), ComfyUI `ce42de5f`, INT8 FastH3 Omni + INT8 text encoder, 24 fps, reference images only (two characters). Raw per-job JSON is in [`benchmarks/records/`](../benchmarks/records), prompts in [`benchmarks/prompts/`](../benchmarks/prompts), the compute-unit log in [`benchmarks/cu-log.jsonl`](../benchmarks/cu-log.jsonl) and [`benchmarks/cu-log-4.jsonl`](../benchmarks/cu-log-4.jsonl) (session 4) and [`benchmarks/cu-log-5.jsonl`](../benchmarks/cu-log-5.jsonl) (session 5) and [`benchmarks/cu-log-6.jsonl`](../benchmarks/cu-log-6.jsonl) (session 6) and [`benchmarks/cu-log-7.jsonl`](../benchmarks/cu-log-7.jsonl) (session 7, the `ayase` run; only its last line is kept there).
 
 Read the numbers with these caveats: one seed per cell, one pair of characters, motion and identity scored by simple scripts plus my own eyes. The first job after any model change includes 1-3 minutes of model loading; that is labelled "cold" where it applies.
 
@@ -16,6 +16,7 @@ Read the numbers with these caveats: one seed per cell, one pair of characters, 
 | Colab compute units, session 4 (non-distilled draft + second sampling `r2`) | 363.52 -> 360.87 = **2.65 CU** in about 27 minutes after install (one 23.5 min render); log in `benchmarks/cu-log-4.jsonl` |
 | Colab compute units, session 5 (4-step turbo single pass `r3`) | 360.87 -> 359.54 = **1.33 CU** in about 9.9 min after install (one 8.2 min render); log in `benchmarks/cu-log-5.jsonl`. That is about 8 CU/h, above the panel's 5.3, so treat this single coarse reading with care |
 | Colab compute units, session 6 (4-step turbo + SigmaShift 12/3 `r4`) | 359.03 -> 358.14 = **0.89 CU** in about 10.7 min after install (one 8.5 min render); log in `benchmarks/cu-log-6.jsonl`. That is about 5 CU/h, close to the panel's 5.3 |
+| Colab compute units, session 7 (`ayase` 5 s smoke `s1` + failed 15 s `r5`) | 358.14 -> 353.81 = **4.33 CU** in about 44 min of runtime including install, about 5.9 CU/h by this reading, above the panel's 5.3. The 358.14 start is the previous session's end reading (no reading was taken at this session's start); log in `benchmarks/cu-log-7.jsonl` |
 | Average burn | 4.8 CU/h measured, the Colab panel states 5.3 CU/h |
 | Per-job CU | 5 s about 0.18, 10 s about 0.5, 15 s about 0.88 (measured 0.87-0.89 for each 15 s job) |
 
@@ -110,6 +111,21 @@ To test the "Omni gave up quality for speed" suspicion, part 1 was rendered once
 
 ![part 1, 1.5 s per tile: r1 official Ref2VA 20 steps (top two rows) vs Omni with second sampling (bottom two rows)](../assets/stills/part1-r1-vs-omni.jpg)
 
+### Ayase-style mode (`ayase`): 5 s smoke test and a failed 15 s run
+
+`ayase` is a stock-node approximation of the Ayase Studio recipe, not its code: Ref2VA pruned INT8 + HyperFlow 8-step standalone LoRA (strength 1.0) + MiniMaxH3SigmaShift 12/3, euler + simple, an 8-step draft at 960x544 (0.5 MP), a neural latent upscale x2 to 1920x1088 (LBH-123-AI node, pinned 40316cf0), then a 7-step second pass at denoise 0.22 with a new seed, the repair instruction appended to the prompt, and the first-pass audio restored. Full layout, no tiling. The studio's own recipe is 0.4 MP to 1.0 MP tiled; I used 0.5 MP x2 because my home GPU has 8 GB. The output is not bit-identical to the studio's Python.
+
+| Run | Result |
+|---|---|
+| `s1`: 5 s, seed 20261019, same prompt and references as `r1` to `r4` | **678.26 s cold**: conditioning 91.4, draft sampling 107.8, draft decode 6.9, hd conditioning 16.0, second sampling 403.0 (59%), final decode 19.5, mux and save 12.8 (these sum to 657 s; about 21 s of the total is not itemised). Output 1920x1088, 5.17 s, audio -16.8 dB |
+| `r5`: 15 s, same seed | **Failed.** The local ComfyUI service stopped answering (read timeout after 30 s). The Colab panel showed GPU RAM 39.2 of 40.0 GB at that time, so GPU memory exhaustion at 1920x1088 x 362 frames is the likely cause. Not verified; no video was produced |
+
+Motion for `s1` (one seed, 5 s clip, **not comparable with the 15 s numbers above**): overall 34.3, opening 27.9, middle 35.0, last 2 s 36.0, end/mid 103%, longest lull 0.04 s.
+
+By eye (one sample, one frame checked, not quantified): at the same timestamp, the 960x544 draft shows the hatched, shimmering texture and smearing seen in `r3`, and the 1920x1088 final removes almost all of it, with cleaner edges. One frame at about 1.7 s shows both fighters looking like Kai, with the white-haired Vex missing. I have not checked whether the draft has that frame too.
+
+Reading: in this one sample the second pass repaired the draft's texture artifacts, but its sampling took 403 s against 108 s for the draft (about 3.7 times). The 15 s run at 1920x1088 did not finish. Untested so far: upscale 1.5, shorter clips, a tiled second pass, other `second_steps` or `second_denoise` values, other seeds.
+
 ### Identity loss at the end of part 1 (with my generated references), and the refine-3 fix
 
 Job `s6` (refine 4): in the last second Vex turns into a second Kai after the second sampling, although the draft was correct. A red-pixel probe (`tools/identity_probe.py`) flags exactly that second (red share 1.20% in the draft, 0.43% after). With `--refine-steps 3` (job `s11`) the probe flags nothing and the frame keeps Vex. One sample, so treat 3 as the safer default for two-character fights, not as proof.
@@ -160,5 +176,6 @@ The reference images of Kai and Vex are not in the repo (they follow a public Se
 - `ref2va_hd` with other refine-step or draft-step counts; a second seed for `r1` and `r2`.
 - `ref4` at `p720` with another seed or step count, and a second sample of `r3` (one run only).
 - Other `--shift` values, the HyperFlow 8-step LoRA, `MiniMaxH3TurboSampler`, and other LoRAs on the `ref4` path (`r4` used only 12/3 with the 4-step LoRA).
+- `ayase` beyond the 5 s smoke test `s1`: a 15 s run (`r5` failed), upscale 1.5, other `second_steps` or `second_denoise` values, a tiled second pass, other seeds, and a check of whether the draft has the identity slip.
 - Lip-sync and dialogue; only audio presence and level were checked.
 - A human blind comparison of draft vs refined; the detail comparison is by eye.
