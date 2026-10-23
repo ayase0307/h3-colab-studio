@@ -1,0 +1,23 @@
+{
+ "id": "r8-ayase-15s-tiled",
+ "mode": "ayase",
+ "draft_size": "960x544",
+ "seconds": 15.1,
+ "seed": 20261019,
+ "total_s": 1891.84,
+ "stages_s": {
+  "load+draft": 408.3,
+  "decode draft": 17.9,
+  "up-res": 16.0,
+  "refine": 1333.3,
+  "final decode+mux": 91.8
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 31.4,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 33.75
+ }
+}

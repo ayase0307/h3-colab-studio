@@ -1,0 +1,23 @@
+{
+ "id": "r6-ayase-10s-x20",
+ "mode": "ayase",
+ "draft_size": "960x544",
+ "seconds": 10.1,
+ "seed": 20261019,
+ "total_s": 1731.49,
+ "stages_s": {
+  "load+draft": 307.1,
+  "decode draft": 14.6,
+  "up-res": 16.0,
+  "refine": 1311.5,
+  "final decode+mux": 62.4
+ },
+ "prompt_chars": 7022,
+ "prompt_words": 1207,
+ "refs": 2,
+ "mp4_mb": 24.7,
+ "environment": "int8enc",
+ "motion": {
+  "energy": 46.97
+ }
+}
