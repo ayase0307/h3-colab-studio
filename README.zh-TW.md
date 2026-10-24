@@ -79,35 +79,19 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 
 ## 你會得到什麼
 
-- **以 Google Drive 為基礎的工作佇列。** 先放圖、最後才放 JSON，用改名認領；完成標記帶有 MP4 大小，Drive 同步延遲不會騙到你；留在 `running/` 的工作在重新啟動後會自動退回。
-- **只做參考圖模式，以 FastH3 Omni（8 步）INT8 為底。**
-  - `omni` 832×480 草稿：5 秒草稿 41 秒、15 秒 171 秒。
-  - `omni_hd`：同一個工作再加 **1280×720 的二次取樣**（見下）。
-  - `ref4`：Ref2VA ＋ 4 步 LoRA，草稿約快 1.5 倍（不能拿去精修）。
-  - `ref2va`／`ref2va_hd`：官方未蒸餾 Ref2VA（20 步），單階段 1280×704，或 480p 草稿＋720p 二次取樣。畫面較乾淨，但慢 2–3 倍；各只有一次戰鬥測試（[對照組](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)）。
-  - `ayase`：Ayase 式兩段（Ref2VA 剪枝 INT8＋HyperFlow 8 步 LoRA，960×544 草稿，潛空間放大 x2 到 1920×1088，再跑 7 步二採）。5 秒冒煙測試冷啟動 678 秒，肉眼看草稿的紋理被修掉，但約 1.7 秒一格中兩人都像 Kai、白髮的 Vex 不見了；10 秒不分塊冷啟動 1731 秒；15 秒用分塊二採（`--tiled`）冷啟動 1892 秒。不分塊的 15 秒曾失敗一次，可能是 GPU 顯存不足（未驗證），之後未重試。詳情見 [ayase](docs/benchmarks.md#ayase-style-mode-ayase-5-s-smoke-test-and-a-failed-15-s-run)。
-- **用 seed 抽卡。** `omni_hd` 內的草稿，和相同 seed、提示詞、參考圖的單獨 `omni` 草稿逐影格相同，所以可以先挑中意的草稿，再精修同一支。
-- **逐工作記錄。** 每個結果都帶階段時間線（載入、草稿、放大、精修、解碼）；`h3q cu` 維護 Colab 運算單位日誌。
-- **命令列與 agent 技能**（`skills/h3-colab-studio`）：Claude Code 或任何讀 SKILL.md 的 agent 都能送件、等待、驗證與回報。
+- **Colab A100 40 GB 兩條路**（INT8 主模型＋INT8 文字編碼器、fp16 影片 VAE、euler/simple）：
+  - **快速：** Turbo 4 步，960×544，純文字。5 秒：冷 1分38秒／暖 31 秒；10 秒 1分20秒；15 秒 2分25秒。
+  - **高清：** FastH3 Omni 8 步，1344×768（H3 原生）單次直出，需至少 1 張參考圖。5 秒：冷 4分56秒／暖 3分28秒；10 秒 7分11秒；15 秒在 40 GB 上顯存不足。
+- **極致畫質後製：** 動漫臉部修復（5 秒片約 3.7 分）與 SeedVR2 3B/7B 放大到 1890×1080（臉部＋1080p 每 5 秒片約 11.6 分；40 GB 上 1080p 請控制在約 5 秒）。
+- **最多 9 張參考圖**：「+ 新增參考圖」，對應 `<Picture 1>`…`<Picture 9>`（3 張、10 秒高清：8–10 分）。
+- **以 Google Drive 為基礎的工作佇列（代理模式）。** 先放圖、最後放 JSON，改名認領，完成標記帶 MP4 大小，`running/` 當機自動退回。
+- **命令列與 agent 技能**（`skills/h3-colab-studio`），寫明可選品質、長度、時間與 CU 花費（約 5.3 CU/小時）。
 - **繁體中文的筆記本介面**，手動操作用，引擎相同。
+
+舊模式（`omni_hd` 草稿＋精修、`ref4`、`ref2va_hd`、`ayase`）仍可執行但不建議，見 [docs/legacy.md](docs/legacy.md)。
 
 <p align="center">
   <img src="assets/diagram-architecture.svg" alt="agent 把工作寫進 Drive 佇列；Colab A100 筆記本輪詢它，用 ComfyUI（只綁本機位址）渲染，再把 MP4 寫回" width="100%">
-</p>
-
-## 先草稿，再用 720p 做二次取樣
-
-> **舊流程：** 下方草稿＋720p 二次取樣（`omni_hd`）已不建議使用，會造成模糊與殘影。請改用下一節的 HQ Omni 1344×768 單次直出。
-
-<p align="center">
-  <img src="assets/diagram-two-pass.svg" alt="omni_hd：Omni 8 步草稿 832x480、解碼、放大到 1280x736、重新編碼、只重跑 8 步中的後 4 步、裁成 1280x720" width="100%">
-</p>
-
-第二階段是同一個蒸餾模型，只跑自己 8 步排程的尾段，輸入是放大後的草稿，並重新注入參考圖。尾段切分比「部分去噪」的排程更貼近蒸餾模型的訓練方式。
-
-<p align="center">
-  <img src="assets/stills/draft-vs-final-detail.jpg" alt="左：被拉到 720p 的草稿，線條糊、手上有雜訊；右：二次取樣後，髮絲、護目鏡反光與手指都清楚" width="92%"><br>
-  <sub>左：480p 草稿拉伸到 720p。右：二次取樣之後。同一格。</sub>
 </p>
 
 ## A100 兩模式配置與實測（2026-10-24）
@@ -144,7 +128,7 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 - **高清 15 秒**在 40 GB 卡上會爆顯存：請改用 A100 80GB（可選「未量化」），或切成每段 ≤10 秒再接起來。
 - A100 不支援 FP4，**不要選 NVFP4 文字編碼器**。
 
-## 極致畫質後製（`feat/ultra-quality` 分支，2026-10-24）
+## 極致畫質後製（2026-10-24）
 
 在 ① 勾選 `download_facerefine` 和／或 `download_seedvr2`，再用「極致畫質後製（生成後另跑）」或歷史紀錄的「後製」按鈕。輸出：`video_face.mp4`、`video_1080p.mp4`、`video_face_1080p.mp4`。
 
@@ -168,35 +152,6 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 <td align="center" width="50%"><img src="assets/gifs/multiref-c14.gif" alt="C14 3 張參考圖"><br><sub>C14 · 3 張參考圖 · 9分53秒（冷啟動）</sub></td>
 <td align="center" width="50%"><img src="assets/gifs/multiref-c06.gif" alt="C06 3 張參考圖"><br><sub>C06 · 3 張參考圖 · 8分10秒</sub></td>
 </tr></table>
-
-## 在 Colab A100（40 GB）上的實測
-
-第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。第三、四輪（未蒸餾對照組）見 [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)。
-
-| 長度 | 只出草稿（`omni`） | `omni_hd`（草稿＋720p） | 運算單位（`omni_hd`） |
-|---|---:|---:|---:|
-| 5 秒 | 41 秒 ¹ | 133 秒 ¹（冷啟動 355 秒 ²） | 0.18 ³ |
-| 10 秒 | 約 115 秒 ⁴ | 378 秒 | 0.5 ³ |
-| 15 秒 | 171 秒 ¹ | 656–681 秒 | 0.88 ⁵ |
-
-<sub>¹ 取自先前單一參考圖的工作階段（一張參考圖、不同提示詞），不是下面兩張參考圖的這輪。² 這輪第一件，含模型載入。³ 計算值：4.8 CU/小時 × 秒數。⁴ 由 `omni_hd` 工作的階段時間推算。⁵ 實際餘額差（每件 0.87–0.89）。</sub>
-
-二次取樣佔 15 秒工作的 54%。`--refine-steps 3` 可以把 15 秒工作從 665 秒降到 582 秒。
-
-**30 秒戰鬥測試**（h3-combat-impact 的兩段 15 秒 Ref2VA 範例；提示詞逐位元相同、使用原始參考圖）：
-
-| | 本儲存庫 | 原展示片（本機 8 GB GPU、16 步 `high`） |
-|---|---:|---:|
-| 第一段 動作能量／結尾對中段 | 24.7 / 93% | 28.2 / 96% |
-| 第二段 動作能量／結尾對中段 | 28.3 / 81% | 28.1 / 93% |
-| 安靜的說話特寫（對照尺度） | 1.4–2.1 | － |
-
-**參考圖影響很大。** 我第一輪用的是依角色文字自己生成的兩張圖，草稿裡有一鏡把兩位格鬥家都畫成 Kai，整體看起來也弱很多；用同樣的提示詞與 seed 改成原始兩張圖重跑，就解決了。原流程本身也是不同的配方（FreeVideo，底層是 VDN-H3，16 步 `high`，單階段），所以預期的是相近的風格，而不是一模一樣的鏡頭。未蒸餾的 Ref2VA 對照組畫面較乾淨、動作反而較少（單階段 18.6、加二次取樣 16.4），所以差距不只是 Omni 加速造成的。並排畫面與細節：[`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments)。
-
-<p align="center">
-  <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="第一段畫面：第 1、3 排是 h3-combat-impact 展示片，第 2、4 排是本儲存庫" width="92%"><br>
-  <sub>同一份提示詞。第 1、3 排：原展示片。第 2、4 排：本儲存庫、原始參考圖、720p。</sub>
-</p>
 
 ## 老實說的限制
 

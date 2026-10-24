@@ -79,35 +79,19 @@ This repo is a notebook plus a small client: your agent drops a job into a Drive
 
 ## What you get
 
-- **A job queue over Google Drive.** Submit with images first and JSON last, claim by rename, a completion marker that carries the MP4 size so Drive sync lag never fools you, crash recovery for jobs left in `running/`.
-- **Reference-image modes only, built on FastH3 Omni (8-step) INT8.**
-  - `omni` draft at 832x480: a 5 s draft in 41 s, 15 s in 171 s.
-  - `omni_hd`: the same job plus a **second sampling at 1280x720** (details below).
-  - `ref4`: Ref2VA + 4-step LoRA, about 1.5x faster drafts (not refinable).
-  - `ref2va` / `ref2va_hd`: the official non-distilled Ref2VA (20 steps), one pass at 1280x704 or a 480p draft plus second sampling at 720p. Cleaner but 2-3x slower; one combat test each ([control runs](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)).
-  - `ayase`: Ayase-style two-pass (Ref2VA pruned INT8 + HyperFlow 8-step LoRA, 960x544 draft, neural latent upscale x2 to 1920x1088, 7-step second pass). One 5 s smoke test took 678 s cold; by eye the draft's texture was repaired, but one frame at about 1.7 s showed both fighters looking like Kai (white-haired Vex missing). A 10 s run without tiling took 1,731 s cold; a 15 s run with the tiled second pass (`--tiled`) took 1,892 s. An untiled 15 s run failed once, probably from GPU memory (not verified), and has not been retried since. Details: [ayase](docs/benchmarks.md#ayase-style-mode-ayase-5-s-smoke-test-and-a-failed-15-s-run).
-- **Re-roll by seed.** A draft inside `omni_hd` is frame-identical to a standalone `omni` draft with the same seed, prompt and references, so you can pick a favourite draft and refine exactly that one.
-- **Per-job accounting.** Each result carries a stage timeline (load, draft, up-res, refine, decode); `h3q cu` keeps the Colab compute-unit log.
-- **A CLI and an agent skill** (`skills/h3-colab-studio`) so Claude Code or any SKILL.md-aware agent can submit, wait, verify and report.
+- **Two paths on a Colab A100 40 GB** (INT8 model + INT8 text encoder, fp16 video VAE, euler/simple):
+  - **Fast:** Turbo 4-step, 960×544, text only. 5 s: 1m38s cold / 31s warm; 10 s: 1m20s; 15 s: 2m25s.
+  - **HQ:** FastH3 Omni 8-step, single pass at 1344×768 (H3 native), needs ≥1 reference image. 5 s: 4m56s cold / 3m28s warm; 10 s: 7m11s; 15 s runs out of memory on 40 GB.
+- **Ultra-quality post-processing:** anime face refine (~3.7 min per 5 s clip) and SeedVR2 3B/7B upscale to 1890×1080 (face + 1080p ≈ 11.6 min per 5 s clip; keep the 1080p pass to about 5 s on 40 GB).
+- **Up to 9 reference images** with 「+ 新增參考圖」, mapped to `<Picture 1>`…`<Picture 9>` (3 refs, 10 s HQ: 8-10 min).
+- **A job queue over Google Drive (agent mode).** Images first, JSON last, claim by rename, completion marker with the MP4 size, crash recovery for `running/`.
+- **A CLI and an agent skill** (`skills/h3-colab-studio`) with modes, durations, times and CU cost (~5.3 CU/h).
 - **A Chinese (zh-TW) notebook UI** for manual use, same engine.
+
+Older modes (`omni_hd` draft + refine, `ref4`, `ref2va_hd`, `ayase`) still run but are not recommended: see [docs/legacy.md](docs/legacy.md).
 
 <p align="center">
   <img src="assets/diagram-architecture.svg" alt="Agent writes a job into the Drive queue; the Colab A100 notebook polls it, renders with ComfyUI on loopback and writes the MP4 back" width="100%">
-</p>
-
-## Draft first, then a second sampling at 720p
-
-> **Legacy:** the draft + 720p second-sampling flow (`omni_hd`) below is no longer recommended; it caused blur and ghosting. Use HQ Omni single pass at 1344×768 (next section).
-
-<p align="center">
-  <img src="assets/diagram-two-pass.svg" alt="omni_hd: Omni 8-step draft at 832x480, decode, resize to 1280x736, re-encode, resample the last 4 of 8 steps, crop to 1280x720" width="100%">
-</p>
-
-The second pass is the same distilled model run on only the tail of its own 8-step schedule, over the up-scaled draft, with the references injected again. A tail split matches how the distilled model was trained better than a partial-denoise schedule would.
-
-<p align="center">
-  <img src="assets/stills/draft-vs-final-detail.jpg" alt="Left: the draft stretched to 720p, soft lines and noise on the hand. Right: after the second sampling, clean hair strands, goggle reflections and fingers" width="92%"><br>
-  <sub>Left: the 480p draft stretched to 720p. Right: after the second sampling. Same frame.</sub>
 </p>
 
 ## A100 two-path setup and measurements (2026-10-24)
@@ -131,7 +115,7 @@ Colab **A100-SXM4-40GB**, branch `fix/a100-quality`, about 5.3 CU/h; cell ① se
 
 GPU RAM read about 36-38 GB after jobs. HQ 15 s needs an A100 80GB (unquantized) or ≤10 s segments. Do not pick the NVFP4 text encoder on A100 (no FP4).
 
-## Ultra-quality post-processing (branch `feat/ultra-quality`, 2026-10-24)
+## Ultra-quality post-processing (2026-10-24)
 
 Tick `download_facerefine` and/or `download_seedvr2` in cell ①, then use 「極致畫質後製（生成後另跑）」 or the history 「後製」 button. Outputs: `video_face.mp4`, `video_1080p.mp4`, `video_face_1080p.mp4`.
 
@@ -155,35 +139,6 @@ Click 「+ 新增參考圖」 to add up to 9 references; image N maps to `<Pictu
 <td align="center" width="50%"><img src="assets/gifs/multiref-c14.gif" alt="C14 3 refs"><br><sub>C14 · 3 refs · 9m53s (cold)</sub></td>
 <td align="center" width="50%"><img src="assets/gifs/multiref-c06.gif" alt="C06 3 refs"><br><sub>C06 · 3 refs · 8m10s</sub></td>
 </tr></table>
-
-## Measured on a Colab A100 (40 GB)
-
-Session 1: 7 renders, **7.03 compute units** from a fresh VM (376.67 to 369.64), about 4.8 CU/hour averaged. Session 2 (the re-run with the original references): 2 renders, 2.21 CU. Full tables, methods and caveats: [`docs/benchmarks.md`](docs/benchmarks.md). Sessions 3-4 (non-distilled controls): see [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling).
-
-| Clip | Draft only (`omni`) | `omni_hd` (draft + 720p) | Compute units (`omni_hd`) |
-|---|---:|---:|---:|
-| 5 s | 41 s ¹ | 133 s ¹ (355 s cold ²) | 0.18 ³ |
-| 10 s | about 115 s ⁴ | 378 s | 0.5 ³ |
-| 15 s | 171 s ¹ | 656-681 s | 0.88 ⁵ |
-
-<sub>¹ measured in an earlier single-reference session (one reference image, different prompts), not in the two-reference run below. ² the first job of the two-reference session, including model loading. ³ computed: 4.8 CU/h x seconds. ⁴ derived from the stage times of `omni_hd` jobs. ⁵ measured balance deltas (0.87-0.89 per job).</sub>
-
-The second sampling is 54% of a 15 s job. `--refine-steps 3` cuts a 15 s job from 665 s to 582 s.
-
-**30 s combat test** (two 15 s Ref2VA segments from h3-combat-impact; prompts byte-identical, original reference images):
-
-| | This repo | Original showcase (local 8 GB GPU, 16-step `high`) |
-|---|---:|---:|
-| Part 1 motion energy / end-over-mid | 24.7 / 93% | 28.2 / 96% |
-| Part 2 motion energy / end-over-mid | 28.3 / 81% | 28.1 / 93% |
-| Quiet talking portraits, for scale | 1.4-2.1 | - |
-
-**Reference images decide a lot.** My first run used two images I generated from the character text; the draft drew both fighters as Kai in one shot and the whole result looked weaker. Re-running the same prompts and seed with the original two images fixed that. The original pipeline is also a different recipe (FreeVideo on VDN-H3, 16-step `high`, one pass), so expect a similar look, not the same shots. A non-distilled Ref2VA control gave cleaner frames but less motion (18.6 single pass, 16.4 with second sampling), so Omni's speed-up alone does not explain the gap. Side-by-side frames and details: [`docs/benchmarks.md`](docs/benchmarks.md#3-the-30-second-combat-test-two-15-s-segments).
-
-<p align="center">
-  <img src="assets/stills/combat-part1-vs-showcase.jpg" alt="Part 1 frames: the h3-combat-impact showcase on rows 1 and 3, this repo on rows 2 and 4" width="92%"><br>
-  <sub>Same prompt. Rows 1 and 3: the original showcase. Rows 2 and 4: this repo, original reference images, 720p.</sub>
-</p>
 
 ## Honest limits
 
