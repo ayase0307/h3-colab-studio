@@ -97,6 +97,8 @@ This repo is a notebook plus a small client: your agent drops a job into a Drive
 
 ## Draft first, then a second sampling at 720p
 
+> **Legacy:** the draft + 720p second-sampling flow (`omni_hd`) below is no longer recommended; it caused blur and ghosting. Use HQ Omni single pass at 1344×768 (next section).
+
 <p align="center">
   <img src="assets/diagram-two-pass.svg" alt="omni_hd: Omni 8-step draft at 832x480, decode, resize to 1280x736, re-encode, resample the last 4 of 8 steps, crop to 1280x720" width="100%">
 </p>
@@ -206,8 +208,8 @@ python skills/h3-colab-studio/scripts/h3q.py status
 python skills/h3-colab-studio/scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size p480 --seconds 15 --seed 7 --ref kai.png --ref vex.png
 python skills/h3-colab-studio/scripts/h3q.py wait shot01
 python skills/h3-colab-studio/scripts/h3q.py verify shot01 --out results/
-# love seed 7? render it at 720p with the identical prompt and references:
-python skills/h3-colab-studio/scripts/h3q.py submit shot01-hd --prompt-file prompt.txt --mode omni_hd --seconds 15 --seed 7 --ref kai.png --ref vex.png
+# final HQ render: Omni single pass 1344x768, 10 s
+python skills/h3-colab-studio/scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size native --seconds 10 --seed 7 --ref kai.png --ref vex.png
 ```
 
 **3. Stop paying.** Delete the Colab runtime when the batch is done (it bills runtime hours, not jobs).

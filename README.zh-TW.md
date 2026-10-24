@@ -97,6 +97,8 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 
 ## 先草稿，再用 720p 做二次取樣
 
+> **舊流程：** 下方草稿＋720p 二次取樣（`omni_hd`）已不建議使用，會造成模糊與殘影。請改用下一節的 HQ Omni 1344×768 單次直出。
+
 <p align="center">
   <img src="assets/diagram-two-pass.svg" alt="omni_hd：Omni 8 步草稿 832x480、解碼、放大到 1280x736、重新編碼、只重跑 8 步中的後 4 步、裁成 1280x720" width="100%">
 </p>
@@ -219,8 +221,8 @@ python skills/h3-colab-studio/scripts/h3q.py status
 python skills/h3-colab-studio/scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size p480 --seconds 15 --seed 7 --ref kai.png --ref vex.png
 python skills/h3-colab-studio/scripts/h3q.py wait shot01
 python skills/h3-colab-studio/scripts/h3q.py verify shot01 --out results/
-# 喜歡 seed 7？用完全相同的提示詞與參考圖，改成 720p 渲染：
-python skills/h3-colab-studio/scripts/h3q.py submit shot01-hd --prompt-file prompt.txt --mode omni_hd --seconds 15 --seed 7 --ref kai.png --ref vex.png
+# 最終高清：Omni 單次直出 1344x768，10 秒
+python skills/h3-colab-studio/scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size native --seconds 10 --seed 7 --ref kai.png --ref vex.png
 ```
 
 **3. 別讓它繼續扣點。** 一批做完就刪除 Colab 執行階段（它依執行時數計費，不是依工作數）。

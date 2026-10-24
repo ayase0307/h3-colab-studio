@@ -1,100 +1,67 @@
 ---
 name: h3-colab-studio
-description: Use when you need to generate MiniMax H3 / FastH3 Omni videos on the user's Google Colab Pro GPU (A100) through the Drive job queue instead of a local GPU - submit prompt + reference images, wait for the render, verify the MP4, track Colab compute units, and run the draft-then-720p two-pass flow (omni draft at 480p, then omni_hd second sampling to 1280x720). Triggers - "Colab", "A100", "運算單元 / compute units", "抽卡 / draft then refine", "omni_hd", "h3q", "送件 / 取件", "h3-queue", "用 Colab 跑 H3", reference-image video (Ref2VA) at 5/10/15 s, "ref2va_hd".
+description: Use when generating MiniMax H3 / FastH3 Omni videos on the user's Google Colab A100 via ayase0307/h3-colab-studio - choosing quality mode, duration, post-processing (face refine, SeedVR2 1080p), multi-reference images, estimating render time and Colab compute units (CU), and driving the notebook either through the web UI or the Drive job queue (agent mode). Triggers: Colab, A100, H3, Omni, 運算單元, 出片, 1080p, 臉部修復, 多參考圖, h3-queue, h3q.
 ---
 
 # H3 Colab Studio
 
-Operate the user's Colab notebook (`notebook/MiniMax_H3_Studio.ipynb`) as a **video render service**. No public tunnel exists: you talk to it only through a Google Drive folder, `h3-queue/{inbox,running,done,failed}`, with the CLI `scripts/h3q.py`.
+## Notebooks
+- main (stable fast/HQ): https://colab.research.google.com/github/ayase0307/h3-colab-studio/blob/main/notebook/MiniMax_H3_Studio.ipynb
+- feat/ultra-quality (adds face refine, SeedVR2 1080p, up to 9 refs in UI): https://colab.research.google.com/github/ayase0307/h3-colab-studio/blob/feat/ultra-quality/notebook/MiniMax_H3_Studio.ipynb
 
-Prompt *content* comes from other skills. Write it first, then submit:
-- `h3-video-prompting` (what to write, Ref2VA six-part format, five-part shots, length rules)
-- `h3-combat-impact` (fights, impact frames, camera energy)
+Runtime: A100 (A100-SXM4-40GB; H100 usually unavailable), High-RAM on. Cost ~5.3 CU/hour (Google AI Pro balance). Cell ① setup ~4.5-5.3 min on a fresh VM.
 
-## 0. Preconditions (check before anything else)
+## Cell ① options
+- Model profile INT8 + INT8 text encoder. Never NVFP4 on A100 (no FP4 support).
+- `download_omni` - required for HQ / multi-reference.
+- `download_facerefine` - face refine pass (anime detector).
+- `download_seedvr2` - SeedVR2 1080p upscaler (3B INT8 recommended, 7B FP16 optional).
+Pipeline defaults: fp16 video VAE, euler/simple, native single pass (do not use omni_hd draft+refine for finals: it caused blur/ghosting).
 
-```bash
-python scripts/h3q.py status      # ALIVE = notebook cell 2 is running; STALE = it is not
-```
-
-If STALE, the **user** must start the notebook: open it in Colab, runtime A100, run cell 1 (about 6 min on a fresh VM), run cell 2, click the Drive authorization dialog (a Google OAuth popup that only the user can click). You cannot start it for them. Say so plainly, then wait.
-
-Queue root is found automatically (`G:/我的雲端硬碟/h3-queue`, `~/Google Drive/My Drive/h3-queue`, or env `H3Q_ROOT`, or `--queue PATH`).
-
-## 1. Choose a mode
-
-| Goal | `--mode` | Refs | Time (A100 40 GB, warm) |
+## Quality modes
+| Mode | Setting | Resolution | Needs |
 |---|---|---|---|
-| Fast draft you can re-roll by seed | `omni` + `--size p480` | 1-9 images | 5 s: 41 s, 15 s: 171 s (earlier 1-reference session) |
-| Final 720p, same seed as the chosen draft | `omni_hd` (size defaults to `p480`) | 1-9 images | 5 s: 133 s warm (355 s cold), 10 s: 378 s, 15 s: 656-681 s |
-| Faster draft, **cannot** be refined | `ref4` | 1-9 images | 5 s: 27 s, 10 s: 57 s (earlier 1-reference session) |
-| Cleaner frames, non-distilled, one pass (slow) | `ref2va` (--steps, default 20) | 1-9 images | 15 s: 1,817 s cold, 1280x704 |
-| Non-distilled draft + 720p second sampling (slow) | `ref2va_hd` (--refine-steps default 8) | 1-9 images | 15 s: 1,412 s cold |
-| Ayase-style two-pass: 8-step draft at 960x544, latent upscale x2, 7-step second pass (`ayase`; 5 and 10 s untiled, 15 s with `--tiled`) | `ayase` (--upscale 2.0, --second-steps 7, --second-denoise 0.22, `--tiled` for 15 s) | 1-9 images | 5 s: 678 s cold; 10 s: 1,731 s cold; 15 s tiled: 1,892 s cold; all 1920x1088 (see rule 8) |
-| No reference images | `turbo`, `turbo4`, `quality` | optional first/last frame | 5 s: 130 s |
+| Fast | 極速 Turbo 4-step, landscape | 960x544 | text only |
+| HQ | Omni 8-step, 橫向・高解析度, single pass | 1344x768 (H3 native max) | >=1 reference image |
 
-Rules that matter:
-1. A draft can only be refined if it came from `omni`. The `omni` draft and the draft inside `omni_hd` are frame-identical for the same seed, prompt and refs. `ref4` drafts are a different model and cannot be refined. Frame-identity of a standalone `ref2va --size p480` draft with the draft inside `ref2va_hd` has not been tested. Plain `ref2va` defaults to 1280x704, so it is not a draft.
-2. `ref_N` maps to `<Picture N>` in the prompt. Numbers must start at 1 and be contiguous.
-3. `omni_hd` renders 1280x736 and crops to 1280x720 (720 is not on H3's 32-pixel grid).
-4. Never stack LoRAs. Omni is already 8-step distilled.
-5. **Reference images matter more than most settings.** Use images with clearly different silhouettes and colours (in our test, a blond braid + orange visor against white spiky hair + horns). With look-alike or weak references the draft itself can draw two fighters as the same person; the second sampling cannot fix that. Check the draft stills (`omni_hd` keeps `<id>.draft.mp4`).
-6. For `omni_hd`: `--refine-steps` defaults to 4. For two-character fights prefer **3**: it is 90 s faster at 15 s and avoided an identity slip (the second fighter turning into a copy of the first) seen once at 4. One sample, so verify with the stills.
-7. `ref2va` / `ref2va_hd` use the Ref2VA weights from the download_ref4 box in cell ①. In the one combat test they gave cleaner frames but lower motion energy than Omni (18.6 / 16.4 vs 24.7). Use when clean identity matters more than impact (one sample each). About 2-3x the time. `ref4` (Ref2VA + 4-step turbo LoRA, single pass) also accepts `--size p720`: one 15 s run at 1280x704 took 494 s cold, against 1,817 s for `ref2va`, with similar motion energy but rougher frames by eye (one sample; footnote ⁵ in `references/modes-and-timings.md`). `--shift` (12/3) gave a bit-identical result on ref4 p720 in one test, so it does not change the output.
-8. `ayase` (Ref2VA + HyperFlow 8-step LoRA, 960x544 draft, neural latent upscale, second pass): in one 5 s sample, by eye, the second pass repaired the draft's hatched texture and smearing. A 10 s untiled run (1,731 s cold) and a 15 s run with `--tiled` (1,892 s cold) both finished at 1920x1088. For a 15 s clip use `--tiled`. An untiled 15 s run (`r5`) failed with a read timeout (GPU RAM was near full, the cause is unverified) and has not been retried since the job-loop timeout fix, so it is not known whether tiling was needed. Check the stills: in the tiled 15 s run the final looked softer, with a haze patch in one frame (cause unverified), and one frame at about 1.7 s in the 5 s run showed both fighters looking like Kai (see `references/modes-and-timings.md` footnotes ⁶ and ⁷). The stock-node recipe is an approximation of the Ayase Studio code, not bit-identical to it.
+## Measured times (A100 40 GB)
+| Path | 5 s cold | 5 s warm | 10 s | 15 s |
+|---|---:|---:|---:|---:|
+| Fast | 1m38s | 31s | 1m20s | 2m25s |
+| HQ | 4m56s | 3m28s | 7m11s | FAILS (OOM, runtime dies) |
 
-## 2. Submit, wait, verify
+Multi-reference HQ (3 refs, 10 s, 1344x768): 9m53s cold, 8m10s next.
 
+Post-process on a 5 s HQ clip (feat/ultra-quality, 「極致畫質後製」 or history 「後製」):
+- Face refine: ~3.7 min (219-228 s) -> video_face.mp4, 1344x768
+- SeedVR2 3B 1080p after face: +462 s (total ~11.6 min) -> video_face_1080p.mp4, 1890x1080
+- 10 s clip + 1080p pass: runtime died. Keep 1080p to <=5 s clips or use an 80 GB GPU.
+
+## Multi-reference
+Click 「+ 新增參考圖」 (up to 9). Image N = `<Picture N>` in the prompt; numbering from 1, contiguous. Use visually distinct references.
+
+## Planning rules
+- Max per clip on 40 GB: Fast 15 s, HQ 10 s, HQ+1080p 5 s. Longer scenes: split into segments.
+- Budget: CU ≈ wall-clock hours x 5.3 (including ~5 min setup).
+- Batch jobs in one session to reuse the warm model.
+- ALWAYS finish with Runtime > Disconnect and delete runtime, or CUs keep draining.
+
+## Two ways to drive it
+1. UI mode: open notebook, run cells, use the in-notebook panel, download with 「儲存 MP4」. Needs the user's Google account signed in to the browser.
+2. Agent (queue) mode: no public tunnel. Run the notebook's agent-mode cell; it polls Google Drive `My Drive/h3-queue/{inbox,running,done,failed}` + heartbeat.json. Submit with `skills/h3-colab-studio/scripts/h3q.py` (or write `<id>.json` + `<id>.ref_N.png` into inbox, images first, JSON last). Spec: docs/agent-protocol.md.
+   Manual authorization: the user must start the notebook on an A100 and click the Google Drive mount OAuth popup (google.colab drive.mount) - an agent cannot click it. Agent side needs access to the same Drive (Drive desktop sync folder or Drive connector). `h3q.py status` STALE = notebook not running. Create `h3-queue/STOP` to end the loop. Then still disconnect & delete the runtime.
+
+## Queue CLI (run from skills/h3-colab-studio/)
 ```bash
-python scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size p480 --seconds 15 --seed 7 --ref kai.png --ref vex.png
-python scripts/h3q.py wait shot01                      # prints per-stage seconds; exit code 1 on failure
-python scripts/h3q.py verify shot01 --out results/     # size match, streams, audio level, motion, 3 stills
-# happy with seed 7?  re-run it at 720p with the identical prompt and refs:
-python scripts/h3q.py submit shot01-hd --prompt-file prompt.txt --mode omni_hd --seconds 15 --seed 7 --ref kai.png --ref vex.png
+python scripts/h3q.py status                      # ALIVE / STALE
+# HQ: Omni 8-step single pass 1344x768 (native), refs map to <Picture N>
+python scripts/h3q.py submit shot01 --prompt-file prompt.txt --mode omni --size native --seconds 10 --seed 7 --ref a.png --ref b.png --ref bg.png
+# Fast: Turbo 4-step 960x544
+python scripts/h3q.py submit draft01 --prompt-file prompt.txt --mode turbo4 --size landscape --seconds 5
+python scripts/h3q.py wait shot01
+python scripts/h3q.py verify shot01 --out results/
+python scripts/h3q.py cu add --balance 324.55 --note "session start"; python scripts/h3q.py cu report
+python scripts/h3q.py gif results/shot01.mp4 preview.gif --width 480 --fps 10
 ```
-
-Submit order is handled by the CLI (images first, JSON last, atomic rename). Job ids: `A-Za-z0-9_-`, max 64. Jobs run one at a time in mtime order; queue several at once so the GPU never idles.
-
-Read `references/modes-and-timings.md` for stage timings, and `references/protocol.md` for the file protocol (use it if you cannot run the CLI).
-
-## 3. Verify like you mean it
-
-`verify` fails (exit 1) if the MP4 size differs from the marker, there is no audio track, or motion is near zero. Then **look at the stills** (`<name>_f0..f2.png`) - the checks cannot tell you the face is right. For fights also run the combat skill's `scripts/measure_motion.py` (end-over-mid >= 60%).
-
-For multi-character `omni_hd` clips also run `tools/identity_probe.py draft.mp4 final.mp4` if the repo is available (it compares a character's colour presence in the draft and the refined clip).
-
-Typical failure messages (they name the ComfyUI node):
-- `Omni 模式至少需要一張參考圖片` / `參考圖模式...至少需要` - a reference mode got no `--ref`.
-- `參考圖片沒有送達` - a declared image did not sync from Drive within 10 minutes; resubmit.
-- `The size of tensor a ... must match` - the ComfyUI pin is older than `ce42de5f` (Omni needs PDD support). Rebuild the notebook.
-- CUDA out of memory - lower `--seconds`, or ask the user whether to switch the runtime to G4 (96 GB, higher CU rate).
-
-## 4. Track compute units
-
-Colab bills runtime hours, not jobs. A100 runs about **5.3 CU/hour** idle or busy. The balance is only visible in the Colab "Resources" panel (it is not exposed as text), so ask the user to read it, or read it from a screenshot if you drive the browser:
-
-```bash
-python scripts/h3q.py cu add --balance 376.67 --note "session start"
-python scripts/h3q.py cu add --balance 371.40 --note "after 15 s HD"
-python scripts/h3q.py cu report          # minutes, CU used, CU/h per interval
-```
-
-Take a reading at the start, after each long job, and at the end. Report wall-clock share including install (about 6 minutes) and idle time, not only render seconds.
-
-## 5. Finish the session
-
-When the batch is done, **tell the user and ask before deleting the runtime** unless they already said to ("跑完就幫我結束"). Deleting it stops billing; the next session needs about 6 minutes of setup plus one more Drive authorization click. Videos are safe in `done/`.
-
-## 6. GIF previews for READMEs
-
-```bash
-python scripts/h3q.py gif results/shot01-hd.mp4 preview.gif --width 400 --fps 24 --start 2 --dur 5
-```
-
-24 fps (4 cs delay) plays smoothly; keep each GIF under about 10 MB (GitHub proxies larger ones poorly) by cutting 4-6 s excerpts and using 400-480 px width. Link the full MP4 next to it.
-
-## Boundaries
-
-- No public URLs, no tunnels, no ngrok: Colab's terms forbid serving from a runtime.
-- MiniMax H3 weights are under the MiniMax community license; outputs are the user's to check against it (region limits apply).
-- You cannot click Google OAuth popups; do not try to work around that.
+Field reference: `references/protocol.md` / `docs/agent-protocol.md`. Face refine and SeedVR2 1080p are UI-only (「後製」) on this branch.
+Legacy modes (`omni_hd` draft+refine, `ref2va_hd`, `ayase`) still exist but are not recommended: `omni_hd` caused the blur/ghosting fixed here.
