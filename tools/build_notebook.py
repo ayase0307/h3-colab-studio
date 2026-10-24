@@ -15,6 +15,9 @@ setup = f'''#@title ① 準備環境並開啟操作畫面（首次約數分鐘�
 model_precision = "INT8＋INT8 文字編碼器（建議）" #@param ["INT8＋INT8 文字編碼器（建議）", "INT8（NVFP4 文字編碼器，較省空間）", "未量化（A100 80GB）"]
 download_omni = True #@param {{type:"boolean"}}
 download_ref4 = True #@param {{type:"boolean"}}
+download_seedvr2 = False #@param {{type:"boolean"}}
+download_facerefine = False #@param {{type:"boolean"}}
+#@markdown 勾選 download_seedvr2＝下載 SeedVR2 1080p 放大模型（3B INT8 3.2GiB＋7B FP16 15.4GiB＋VAE 0.5GiB，約 +19GiB）。勾選 download_facerefine＝安裝 ComfyUI-H3-FaceRefine 與臉部偵測模型（動畫臉、真人臉，約 75MB＋pip 套件）。兩者都在操作畫面「極致畫質後製」使用。
 #@markdown 勾選 download_ref4＝另外下載 Ref2VA INT8 與 4 步 LoRA（約 +23GB），才能用 ref4 草稿模式與 ref2va／ref2va_hd／ayase（ayase 另含 HyperFlow LoRA、潛空間放大節點與模型，約 +2GB）。
 #@markdown 勾選＝另外下載 FastH3 Omni（約 +22GB，INT8），才能用 Omni 參考圖模式。
 import sys, types, hashlib
@@ -33,7 +36,7 @@ UI_SOURCE = {ui!r}
 from IPython.display import HTML, display
 profile = 'full' if model_precision.startswith('未量化') else ('int8enc' if model_precision.startswith('INT8＋') else 'int8')
 try:
-    setup_report = h3.setup(profile, download_omni, download_ref4)
+    setup_report = h3.setup(profile, download_omni, download_ref4, download_seedvr2, download_facerefine)
     if setup_report:
         h3.install_callbacks()
         display(HTML(UI_SOURCE))

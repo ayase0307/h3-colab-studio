@@ -54,6 +54,20 @@ AYASE_DISK_GIB = 2
 AYASE_REPAIR = "修復一採中的結構畸形、重影、重複或缺失部件、破損邊緣、紋理斷裂和閃爍；嚴格保持原劇情時序、運鏡、構圖、主體身份、服裝、動作、場景、畫面風格和正常區域不變。"
 REF_MODES = ("omni", "omni_hd", "ref4", "ref2va", "ref2va_hd", "ayase")
 HD_MODES = ("omni_hd", "ref2va_hd")
+# ---- Ultra-quality post-passes (each one is a separate ComfyUI job run after generation) ----
+# SeedVR2 1080p: built-in ComfyUI nodes at COMFY_COMMIT (comfy_extras/nodes_seedvr.py), chain from blueprints/Upscale Video (SeedVR2 3B Int8).json
+SEEDVR2_REPO = ("Comfy-Org/SeedVR2", "df48879708206a403d2a61acd55578c2e80fd233")  # Apache-2.0
+SEEDVR2_MODELS = {"3b_int8": "diffusion_models/seedvr2_3b_int8_convrot.safetensors", "7b_fp16": "diffusion_models/seedvr2_7b_fp16.safetensors"}  # 3.22 / 15.35 GiB
+SEEDVR2_VAE = "vae/seedvr2_ema_vae_fp16.safetensors"  # 0.47 GiB
+SEEDVR2_DISK_GIB = 20
+# Face refine: Carasibana/ComfyUI-H3-FaceRefine v1.1.2 (MIT), pinned. Detectors go to models/ultralytics/bbox (registered via extra_model_paths.yaml).
+FACEREFINE_NODES = ("https://github.com/Carasibana/ComfyUI-H3-FaceRefine.git", "d8521d14fe0d721d80cd9417fff5a559cbc21aba")
+FACE_DETECTORS = {  # key: (repo, revision, file in repo, local name)
+    "anime": ("deepghs/anime_face_detection", "784dc4c0bb692351ddcdbe6131a050b17d3025d5", "face_detect_v1.4_s/model.pt", "anime_face_detect_v1.4_s.pt"),  # MIT, 22.5 MB
+    "photo": ("Bingsu/adetailer", "53cc19de382014514d9d4038601d261a7faa9b7b", "face_yolov8m.pt", "face_yolov8m.pt"),  # Apache-2.0, 52 MB
+}
+FACEREFINE_DISK_GIB = 2
+POST_UPSCALE = ("off",) + tuple(SEEDVR2_MODELS)
 # draft size -> (render w, render h, crop w, crop h, crop x, crop y). 720 is not on H3's 32-px grid, so render 736 and crop in-graph.
 HD_TARGETS = {"p480": (1280, 736, 1280, 720, 0, 8), "p480v": (736, 1280, 720, 1280, 8, 0)}
 SIZES = {"p480": (832, 480), "p480v": (480, 832), "landscape": (960, 544), "portrait": (544, 960), "square": (768, 768), "native": (1344, 768), "p720": (1280, 704), "hd": (1280, 736), "hdv": (736, 1280)}  # hd = native 736p single pass, as the RTX 5090 reference clip
@@ -178,7 +192,7 @@ class SetupProgress:
         self.thread.join(timeout=2)
 
 
-def setup(profile="int8", omni=True, ref4=False):
+def setup(profile="int8", omni=True, ref4=False, seedvr2=False, facerefine=False):
     if _active:
         record = json.loads((BASE / "setup.json").read_text())
         if record.get("profile") == profile:
@@ -197,14 +211,15 @@ def setup(profile="int8", omni=True, ref4=False):
     if ref4 and profile == "full":
         raise RuntimeError("Ref2VA 4 步草稿目前只支援 INT8 設定。")
     wanted = list(selected["files"].values()) + ([OMNI_FILES[profile]] if omni else []) + (list(REF4_FILES.values()) if ref4 else []) + (["loras/" + AYASE_LORA[2], "latent_upscale_models/" + AYASE_UPSCALER_NAME] if ref4 else [])
-    need_disk = selected["free_disk"] + (OMNI_DISK_GIB[profile] if omni else 0) + (REF4_DISK_GIB + AYASE_DISK_GIB if ref4 else 0)
+    wanted += (list(SEEDVR2_MODELS.values()) + [SEEDVR2_VAE] if seedvr2 else []) + (["ultralytics/bbox/" + d[3] for d in FACE_DETECTORS.values()] if facerefine else [])
+    need_disk = selected["free_disk"] + (OMNI_DISK_GIB[profile] if omni else 0) + (REF4_DISK_GIB + AYASE_DISK_GIB if ref4 else 0) + (SEEDVR2_DISK_GIB if seedvr2 else 0) + (FACEREFINE_DISK_GIB if facerefine else 0)
     if info["free_disk_gib"] < need_disk and not all((COMFY / "models" / f).exists() for f in wanted):
         raise RuntimeError(f"首次執行需要至少 {need_disk} GiB 的可用空間。")
     progress = SetupProgress()
     try:
         if (BASE / "setup.json").exists():
             cached = json.loads((BASE / "setup.json").read_text())
-            if (cached.get("profile"), cached.get("comfy_commit"), cached.get("vhs_commit"), cached.get("model_revision")) == (profile, COMFY_COMMIT, VHS_COMMIT, MODEL_REVISION) and bool(cached.get("omni")) == omni and bool(cached.get("ref4")) == ref4 and all((COMFY / "models" / f).exists() for f in wanted):
+            if (cached.get("profile"), cached.get("comfy_commit"), cached.get("vhs_commit"), cached.get("model_revision")) == (profile, COMFY_COMMIT, VHS_COMMIT, MODEL_REVISION) and bool(cached.get("omni")) == omni and bool(cached.get("ref4")) == ref4 and bool(cached.get("seedvr2")) == seedvr2 and bool(cached.get("facerefine")) == facerefine and all((COMFY / "models" / f).exists() for f in wanted):
                 progress.update("連線到生成畫面中", 2)
                 start_server(omni)
                 progress.update("準備完成 ↓ 請在下方畫面製作影片", 3)
@@ -241,9 +256,37 @@ def setup(profile="int8", omni=True, ref4=False):
             _run([sys.executable, "-c", script, AYASE_UPSCALER[0], AYASE_UPSCALER[2], AYASE_UPSCALER[1], str(target)], env=quiet)
             if not (target / AYASE_UPSCALER_NAME).exists():
                 shutil.copy2(target / AYASE_UPSCALER[2], target / AYASE_UPSCALER_NAME)
+        if seedvr2:
+            downloads2 = [SEEDVR2_VAE] + list(SEEDVR2_MODELS.values())
+            for index, name in enumerate(downloads2):
+                progress.update(f"2/3 下載 SeedVR2 中 · {index + 1}/{len(downloads2)}", 1.5)
+                script = "from huggingface_hub import hf_hub_download; import sys; hf_hub_download(sys.argv[1],sys.argv[2],revision=sys.argv[3],local_dir=sys.argv[4])"
+                _run([sys.executable, "-c", script, SEEDVR2_REPO[0], name, SEEDVR2_REPO[1], str(COMFY / "models")], env={**os.environ, "HF_HUB_DISABLE_PROGRESS_BARS": "1", "HF_XET_HIGH_PERFORMANCE": "1"})
+        new_nodes = False
+        if facerefine:
+            progress.update("2/3 安裝 FaceRefine 中", 1.8)
+            fr = COMFY / "custom_nodes" / "ComfyUI-H3-FaceRefine"
+            new_nodes = not fr.exists()
+            _checkout(FACEREFINE_NODES[0], fr, FACEREFINE_NODES[1])
+            # requirements.txt lists ultralytics, scipy, insightface, scenedetect; onnxruntime-gpu for insightface (do not mix with CPU onnxruntime)
+            _run([sys.executable, "-m", "pip", "install", "-q", "-r", str(fr / "requirements.txt"), "onnxruntime-gpu"])
+            bbox = COMFY / "models" / "ultralytics" / "bbox"
+            bbox.mkdir(parents=True, exist_ok=True)
+            for repo, revision, name, local in FACE_DETECTORS.values():
+                if not (bbox / local).exists():
+                    script = "from huggingface_hub import hf_hub_download; import sys, shutil; shutil.copy2(hf_hub_download(sys.argv[1],sys.argv[2],revision=sys.argv[3]), sys.argv[4])"
+                    _run([sys.executable, "-c", script, repo, name, revision, str(bbox / local)], env={**os.environ, "HF_HUB_DISABLE_PROGRESS_BARS": "1"})
+            extra = COMFY / "extra_model_paths.yaml"  # the node lists detectors from the ultralytics_bbox folder key; core ComfyUI does not register it
+            text = "h3lab:\n  base_path: " + str(COMFY) + "\n  ultralytics_bbox: models/ultralytics/bbox\n"
+            if not extra.exists() or extra.read_text() != text:
+                extra.write_text(text)
+                new_nodes = True
+        if new_nodes:  # a running server would not see the new node pack / folder key
+            subprocess.run(["pkill", "-f", str(COMFY / "main.py")])
+            time.sleep(3)
         progress.update("3/3 啟動生成引擎中", 2)
         start_server(omni)
-        record = {"profile": profile, "profile_label": selected["label"], "comfy_commit": COMFY_COMMIT, "vhs_commit": VHS_COMMIT, "model_revision": MODEL_REVISION, "omni": omni, "ref4": ref4, "hardware": hardware(), "setup_seconds": round(time.monotonic() - progress.started, 2)}
+        record = {"profile": profile, "profile_label": selected["label"], "comfy_commit": COMFY_COMMIT, "vhs_commit": VHS_COMMIT, "model_revision": MODEL_REVISION, "omni": omni, "ref4": ref4, "seedvr2": seedvr2, "facerefine": facerefine, "facerefine_commit": FACEREFINE_NODES[1] if facerefine else None, "hardware": hardware(), "setup_seconds": round(time.monotonic() - progress.started, 2)}
         (BASE / "setup.json").write_text(json.dumps(record, ensure_ascii=False, indent=2))
         progress.update("準備完成 ↓ 請在下方畫面製作影片", 3)
         return record
@@ -256,6 +299,15 @@ def setup(profile="int8", omni=True, ref4=False):
         return None
     finally:
         progress.close()
+
+
+def _post_nodes():
+    try:
+        record = json.loads((BASE / "setup.json").read_text())
+    except (OSError, ValueError):
+        return ()
+    return ((("SeedVR2Preprocess", "SeedVR2TemporalChunk", "SeedVR2Conditioning", "SeedVR2TemporalMerge", "SeedVR2PostProcessing", "ResizeImageMaskNode", "VHS_LoadVideoPath") if record.get("seedvr2") else ())
+            + (("H3FaceTrackCrop", "H3InjectVideoLatent", "H3PerFrameDenoise", "H3FaceStitch", "VHS_LoadVideoPath") if record.get("facerefine") else ()))
 
 
 def start_server(omni=False):
@@ -274,7 +326,7 @@ def start_server(omni=False):
         try:
             _request("GET", "/system_stats", timeout=2)
             nodes = _request("GET", "/object_info")
-            for required in ("MiniMaxH3ImageToVideo", "VHS_VideoCombine", "VAEDecodeAudio") + (("MiniMaxH3ReferenceToVideo", "MiniMaxH3SigmaShift") if omni else ()):
+            for required in ("MiniMaxH3ImageToVideo", "VHS_VideoCombine", "VAEDecodeAudio") + (("MiniMaxH3ReferenceToVideo", "MiniMaxH3SigmaShift") if omni else ()) + _post_nodes():
                 if required not in nodes:
                     raise RuntimeError(f"必要節點 {required} 無法載入。請檢查準備紀錄。")
             return
@@ -350,7 +402,17 @@ def clean_config(value, need_refs=True):
             raise ValueError("ayase 的 upscale 請設為 1.25 至 2.5、second_steps 3 至 12、second_denoise 0.05 至 0.6。")
         extra = dict(tiled=bool(value.get("tiled", False)), upscale=upscale, second_steps=second_steps, second_denoise=second_denoise,
                      target_width=round(width * upscale / 32) * 32, target_height=round(height * upscale / 32) * 32)
-    return dict(**extra, shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
+    post = clean_post(value)
+    return dict(**extra, **post, shift=shift, sampler=sampler, refine_steps=refine_steps, prompt=prompt, size=size, seconds=seconds, frames=FRAMES[seconds], actual_seconds=FRAMES[seconds] / 24, mode=mode, steps=steps, seed=seed, width=width, height=height, **images)
+
+
+def clean_post(value):
+    post_face = bool(value.get("post_face", False))
+    post_upscale = str(value.get("post_upscale", "off"))
+    detector = str(value.get("face_detector", "anime"))
+    if post_upscale not in POST_UPSCALE or detector not in FACE_DETECTORS:
+        raise ValueError("後製設定不正確：post_upscale 只能是 " + "、".join(POST_UPSCALE) + "；face_detector 只能是 " + "、".join(FACE_DETECTORS) + "。")
+    return {"post_face": post_face, "post_upscale": post_upscale, "face_detector": detector}
 
 
 def upload_image(data_url, _filename="image"):
@@ -663,7 +725,15 @@ def _worker(job_id, config):
             for item in folder.iterdir():
                 if item.name != "result.zip":
                     bundle.write(item, item.name)
-        _update(job_id, state="done", stage="done", message="已完成", report=report)
+        if config.get("post_face") or config.get("post_upscale", "off") != "off":
+            try:  # the base video is already saved; a failed post-pass keeps it and reports the error
+                report.update(_run_post(job_id, folder, config, record, config))
+            except InterruptedError:
+                raise
+            except Exception as exc:
+                report["post_error"] = str(exc)[:2000]
+            (folder / "settings.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        _update(job_id, state="done", stage="done", message="已完成" + ("（後製失敗：" + report["post_error"][:300] + "）" if report.get("post_error") else ""), report=report)
     except InterruptedError as exc:
         _update(job_id, state="cancelled", message=str(exc))
     except Exception as exc:
@@ -679,6 +749,195 @@ def _worker(job_id, config):
             listener.join(timeout=2)
         with _lock:
             _jobs[job_id]["ended"] = time.time()
+            _active = None
+
+
+POST_OUT = "90"
+
+
+def _load_video_node(path):
+    return {"class_type": "VHS_LoadVideoPath", "inputs": {"video": str(path), "force_rate": 0, "custom_width": 0, "custom_height": 0, "frame_load_cap": 0, "skip_first_frames": 0, "select_every_nth": 1}}
+
+
+def _combine_node(images, prefix, crf=16):
+    return {"class_type": "VHS_VideoCombine", "inputs": {"images": images, "audio": ["1", 2], "frame_rate": 24, "loop_count": 0, "filename_prefix": prefix, "format": "video/h264-mp4", "pix_fmt": "yuv420p", "crf": crf, "save_metadata": True, "trim_to_audio": False, "pingpong": False, "save_output": True}}
+
+
+def seedvr2_graph(source, model="3b_int8", prefix="h3_post", seed=0, shorter=1080):
+    """SeedVR2 video upscale, wired like the built-in blueprint (chunk switch on, auto chunk size from free VRAM)."""
+    m = SEEDVR2_MODELS[model].split("/", 1)[1]
+    return {
+        "1": _load_video_node(source),
+        "2": {"class_type": "ResizeImageMaskNode", "inputs": {"input": ["1", 0], "resize_type": "scale shorter dimension", "resize_type.shorter_size": shorter, "scale_method": "lanczos"}},
+        "3": {"class_type": "SeedVR2Preprocess", "inputs": {"resized_images": ["2", 0]}},
+        "4": {"class_type": "VAELoader", "inputs": {"vae_name": SEEDVR2_VAE.split("/", 1)[1]}},
+        "5": {"class_type": "UNETLoader", "inputs": {"unet_name": m, "weight_dtype": "default"}},
+        "6": {"class_type": "VAEEncodeTiled", "inputs": {"pixels": ["3", 0], "vae": ["4", 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8}},
+        "7": {"class_type": "SeedVR2TemporalChunk", "inputs": {"latent": ["6", 0], "temporal_overlap": 2, "chunking_mode": "auto"}},
+        "8": {"class_type": "SeedVR2Conditioning", "inputs": {"model": ["5", 0], "vae_conditioning": ["7", 0]}},
+        "9": {"class_type": "KSampler", "inputs": {"model": ["5", 0], "positive": ["8", 0], "negative": ["8", 1], "latent_image": ["7", 0], "seed": seed, "steps": 1, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+        "10": {"class_type": "SeedVR2TemporalMerge", "inputs": {"latents": ["9", 0], "temporal_overlap": ["7", 1]}},
+        "11": {"class_type": "VAEDecodeTiled", "inputs": {"samples": ["10", 0], "vae": ["4", 0], "tile_size": 512, "overlap": 128, "temporal_size": 64, "temporal_overlap": 8}},
+        "12": {"class_type": "SeedVR2PostProcessing", "inputs": {"images": ["11", 0], "original_resized_images": ["2", 0], "color_correction_method": "lab"}},
+        POST_OUT: _combine_node(["12", 0], prefix),
+    }
+
+
+def facerefine_graph(source, config, profile="int8", detector="anime", refs=(), prefix="h3_post", denoise=0.4):
+    """H3 face refine (Carasibana/ComfyUI-H3-FaceRefine "Auto Select" example), minus MiniMaxH3NativeAudioLock: the output keeps the source audio."""
+    files = PROFILES[profile]["files"]
+    g = {
+        "1": _load_video_node(source),
+        "2": {"class_type": "H3FaceTrackCrop", "inputs": {"images": ["1", 0], "detector": FACE_DETECTORS[detector][3], "confidence": 0.35, "crop_factor": 3.0, "canvas_width": 768, "canvas_height": 768, "canvas_mode": "auto_capped_768",
+                                                          "smooth_window": 21, "size_smooth_window": 51, "smooth_method": "gaussian", "size_mode": "per_frame",
+                                                          "identity_track": detector == "photo", "select": "largest_face"}},  # insightface identity embeddings do not work on drawn faces
+        "3": {"class_type": "CLIPLoader", "inputs": {"clip_name": files["text"].split("/", 1)[1], "type": "minimax", "device": "default"}},
+        "4": {"class_type": "VAELoader", "inputs": {"vae_name": files["video"].split("/", 1)[1]}},
+        "5": {"class_type": "VAELoader", "inputs": {"vae_name": files["audio"].split("/", 1)[1]}},
+        "6": {"class_type": "UNETLoader", "inputs": {"unet_name": files["model"].split("/", 1)[1], "weight_dtype": "default"}},
+        "7": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["6", 0], "lora_name": files["lora"].split("/", 1)[1], "strength_model": 1.0}},
+        "9": {"class_type": "MiniMaxH3ReferenceToVideo", "inputs": {"clip": ["3", 0], "vae": ["4", 0], "audio_vae": ["5", 0], "prompt": config["prompt"], "width": ["2", 4], "height": ["2", 5], "length": ["2", 6], "ref_image_size": "match"}},
+        "10": {"class_type": "H3InjectVideoLatent", "inputs": {"av_latent": ["9", 1], "images": ["2", 0], "vae": ["4", 0]}},
+        "31": {"class_type": "H3PerFrameDenoise", "inputs": {"model": ["7", 0], "av_latent": ["10", 0], "transform": ["2", 1], "denoise_multiplier_small_face": 1.0, "denoise_multiplier_large_face": 0.35,
+                                                             "scale_mode": "absolute_px", "face_px_small": 30.0, "face_px_large": 120.0, "gamma": 1.0, "smooth_frames": 9}},
+        "14": {"class_type": "BasicGuider", "inputs": {"model": ["31", 2], "conditioning": ["9", 0]}},
+        "15": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "er_sde"}},
+        "16": {"class_type": "BasicScheduler", "inputs": {"model": ["31", 2], "scheduler": "simple", "steps": 8, "denoise": denoise}},
+        "17": {"class_type": "RandomNoise", "inputs": {"noise_seed": config.get("seed", 42) % 2**32}},
+        "18": {"class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["17", 0], "guider": ["14", 0], "sampler": ["15", 0], "sigmas": ["16", 0], "latent_image": ["31", 0]}},
+        "19": {"class_type": "VAEDecode", "inputs": {"samples": ["18", 0], "vae": ["4", 0]}},
+        "22": {"class_type": "H3FaceStitch", "inputs": {"base_images": ["1", 0], "refined_crops": ["19", 0], "transform": ["2", 1], "paste_region": "face_only", "mask_dilation": 24, "feather": 24, "colour_match": 1.0, "blend": 1.0, "undetected_frames": "fade_out"}},
+        POST_OUT: _combine_node(["22", 0], prefix),
+    }
+    for index, name in enumerate(refs):
+        g[str(40 + index)] = {"class_type": "LoadImage", "inputs": {"image": name}}
+        g["9"]["inputs"][f"ref_images.ref_image_{index}"] = [str(40 + index), 0]
+    return g
+
+
+def _free_vram():
+    """POST /free unload_models: the prompt worker applies it between jobs, so give it a moment."""
+    import requests
+    try:
+        requests.post(URL + "/free", json={"unload_models": True, "free_memory": True}, timeout=10)
+    except Exception:
+        pass
+    time.sleep(5)
+
+
+def _run_graph(job_id, graph, limit=3600):
+    response = _request("POST", "/prompt", json={"prompt": graph, "client_id": "h3-lab-" + job_id})
+    if response.get("node_errors") or "prompt_id" not in response:
+        raise RuntimeError(json.dumps(response, ensure_ascii=False)[:2000])
+    prompt_id = response["prompt_id"]
+    started = time.monotonic()
+    while time.monotonic() - started < limit:
+        if _jobs[job_id]["cancel"]:
+            _request("POST", "/interrupt")
+            raise InterruptedError("已中止後製。")
+        try:
+            result = _request("GET", "/history/" + prompt_id, timeout=90).get(prompt_id)
+        except Exception:
+            if _process is not None and _process.poll() is not None:
+                raise RuntimeError("生成引擎已結束（可能是記憶體不足）。" + (BASE / "comfy.log").read_text(errors="replace")[-1500:])
+            time.sleep(5)
+            continue
+        if result:
+            if result.get("status", {}).get("status_str") == "error":
+                raise RuntimeError(_comfy_error(result.get("status", {}).get("messages", [])))
+            video = next((x for x in result.get("outputs", {}).get(POST_OUT, {}).get("gifs", []) if x.get("filename", "").endswith(".mp4")), None)
+            if video:
+                source = (COMFY / "output" / video.get("subfolder", "") / video["filename"]).resolve()
+                if not source.is_relative_to((COMFY / "output").resolve()):
+                    raise RuntimeError("輸出路徑不正確。")
+                return source
+            if result.get("status", {}).get("completed"):
+                raise RuntimeError("後製已結束，但未回傳影片檔。")
+        time.sleep(3)
+    _request("POST", "/interrupt")
+    raise TimeoutError("後製超過時間上限，已中止。")
+
+
+def _post_refs(folder, config):
+    """Reference images for face refine: the job's refs (or first/last frame), re-staged into ComfyUI input from the result folder if needed."""
+    names = list(config.get("refs") or []) or [config[k] for k in ("first_frame", "last_frame") if config.get(k)]
+    saved = sorted(folder.glob("ref_*.png")) or [folder / f"{k}.png" for k in ("first_frame", "last_frame") if (folder / f"{k}.png").exists()]
+    out = []
+    for index, name in enumerate(names or [None] * len(saved)):
+        if name and (COMFY / "input" / name).is_file():
+            out.append(name)
+        elif index < len(saved):
+            staged = f"h3post_{folder.name}_{index}.png"
+            shutil.copy2(saved[index], COMFY / "input" / staged)
+            out.append(staged)
+    return out[:MAX_REFS]
+
+
+def _run_post(job_id, folder, config, record, post):
+    """Runs the requested post-passes on folder/video.mp4. Face refine first, then SeedVR2 on its output. Returns the report fragment."""
+    done, current, stem = [], folder / "video.mp4", "video"
+    steps = (["face"] if post["post_face"] else []) + (["upscale"] if post["post_upscale"] != "off" else [])
+    for kind in steps:
+        if kind == "face" and not record.get("facerefine"):
+            raise RuntimeError("尚未安裝 FaceRefine。請在 ① 勾選 download_facerefine 後重新執行。")
+        if kind == "upscale" and not record.get("seedvr2"):
+            raise RuntimeError("尚未下載 SeedVR2。請在 ① 勾選 download_seedvr2 後重新執行。")
+        _update(job_id, stage="sampling", message=("修臉 FaceRefine 中（釋放 VRAM 後另開一個工作）" if kind == "face" else f"1080p SeedVR2（{post['post_upscale']}）中（釋放 VRAM 後另開一個工作）"), step=None, total_steps=None)
+        _free_vram()
+        started = time.monotonic()
+        prefix = f"h3_lab/{folder.name}_{kind}"
+        if kind == "face":
+            graph = facerefine_graph(current.resolve(), config, record["profile"], post["face_detector"], _post_refs(folder, config), prefix)
+            stem += "_face"
+        else:
+            graph = seedvr2_graph(current.resolve(), post["post_upscale"], prefix, config.get("seed", 0) % 2**32)
+            stem += "_1080p"
+        output = _run_graph(job_id, graph)
+        target = folder / (stem + ".mp4")
+        shutil.copy2(output, target)
+        (folder / f"workflow-post-{kind}.json").write_text(json.dumps(graph, ensure_ascii=False, indent=2))
+        current = target
+        done.append({"kind": kind, "file": target.name, "seconds": round(time.monotonic() - started, 2), "bytes": target.stat().st_size,
+                     **({"detector": post["face_detector"]} if kind == "face" else {"model": post["post_upscale"]})})
+    _free_vram()
+    return {"post": done, "final_video": current.name}
+
+
+def postprocess(job_id, options):
+    """Post-process an existing result from history as its own tracked job. Outputs land next to the original video."""
+    global _active
+    if not isinstance(job_id, str) or not job_id.isalnum() or len(job_id) != 12 or not (OUTPUT / job_id / "settings.json").is_file():
+        raise ValueError("找不到此生成結果。")
+    post = clean_post(options or {})
+    if not post["post_face"] and post["post_upscale"] == "off":
+        raise ValueError("請至少選一種後製（修臉 FaceRefine 或 1080p SeedVR2）。")
+    with _lock:
+        if _active:
+            raise RuntimeError("目前正在生成。請等待完成或中止後再執行。")
+        post_id = uuid.uuid4().hex[:12]
+        _active = post_id
+        _jobs[post_id] = {"id": post_id, "source": job_id, "state": "running", "stage": "loading", "message": "準備後製中", "started": time.time(), "cancel": False}
+    threading.Thread(target=_post_worker, args=(post_id, job_id, post), daemon=True).start()
+    return {"id": post_id}
+
+
+def _post_worker(post_id, job_id, post):
+    global _active
+    try:
+        folder = OUTPUT / job_id
+        report = json.loads((folder / "settings.json").read_text())
+        record = json.loads((BASE / "setup.json").read_text())
+        start_server(record.get("omni"))
+        report.update(_run_post(post_id, folder, report["config"], record, post))
+        (folder / "settings.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+        _update(post_id, state="done", stage="done", message="後製完成", report=report)
+    except InterruptedError as exc:
+        _update(post_id, state="cancelled", message=str(exc))
+    except Exception as exc:
+        _update(post_id, state="error", message="後製失敗：" + str(exc))
+    finally:
+        with _lock:
+            _jobs[post_id]["ended"] = time.time()
             _active = None
 
 
@@ -703,7 +962,14 @@ def cancel(job_id):
 def download(job_id, kind="video"):
     if not job_id.isalnum() or len(job_id) != 12:
         raise ValueError("生成 ID 不正確。")
-    names = {"video": ("video.mp4", "video/mp4"), "zip": ("result.zip", "application/zip"), "settings": ("settings.json", "application/json")}
+    names = {"video": ("video.mp4", "video/mp4"), "zip": ("result.zip", "application/zip"), "settings": ("settings.json", "application/json"),
+             "face": ("video_face.mp4", "video/mp4"), "1080p": ("video_1080p.mp4", "video/mp4"), "face_1080p": ("video_face_1080p.mp4", "video/mp4")}
+    if kind == "final":  # last post-pass output, else the original
+        try:
+            final = json.loads((OUTPUT / job_id / "settings.json").read_text()).get("final_video", "video.mp4")
+        except (OSError, ValueError):
+            final = "video.mp4"
+        kind = next((k for k, v in names.items() if v[0] == final), "video")
     if kind not in names:
         raise ValueError("儲存格式不正確。")
     name, mime = names[kind]
@@ -712,7 +978,7 @@ def download(job_id, kind="video"):
         raise ValueError("找不到結果。刪除執行階段後結果也會一併消失。")
     if path.stat().st_size > 60 * 1024**2:
         raise ValueError("檔案超過 60MB，請從 Colab 左側檔案清單開啟 /content/h3-lab/results 後再儲存。")
-    return {"filename": f"minimax_h3_{job_id}.{name.split('.')[-1]}", "mime": mime, "base64": base64.b64encode(path.read_bytes()).decode()}
+    return {"filename": f"minimax_h3_{job_id}{name[5:-4] if name.startswith('video_') else ''}.{name.split('.')[-1]}", "mime": mime, "base64": base64.b64encode(path.read_bytes()).decode()}
 
 
 def about():
@@ -739,7 +1005,7 @@ def install_callbacks():
             # invokeFunction returns an IPython MIME bundle, not the raw dict.
             return JSON(result)
         return call
-    for name, fn in {"about": about, "upload": upload_image, "run": submit, "status": status, "cancel": cancel, "download": download}.items():
+    for name, fn in {"about": about, "upload": upload_image, "run": submit, "status": status, "cancel": cancel, "download": download, "postprocess": postprocess}.items():
         output.register_callback("h3lab." + name, safe(fn))
 
 
