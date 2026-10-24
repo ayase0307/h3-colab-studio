@@ -142,6 +142,31 @@ Kai 與 Vex 的參考圖不放在這個儲存庫（設計沿用公開的 Seedanc
 - **高清 15 秒**在 40 GB 卡上會爆顯存：請改用 A100 80GB（可選「未量化」），或切成每段 ≤10 秒再接起來。
 - A100 不支援 FP4，**不要選 NVFP4 文字編碼器**。
 
+## 極致畫質後製（`feat/ultra-quality` 分支，2026-10-24）
+
+在 ① 勾選 `download_facerefine` 和／或 `download_seedvr2`，再用「極致畫質後製（生成後另跑）」或歷史紀錄的「後製」按鈕。輸出：`video_face.mp4`、`video_1080p.mp4`、`video_face_1080p.mp4`。
+
+<p align="center"><img src="assets/gifs/ultra-face-1080p.gif" alt="HQ Omni 5 秒 + 臉部修復 + SeedVR2 1080p" width="480"><br><sub>HQ Omni 5 秒 → 臉部修復（動漫）→ SeedVR2 3B 1890×1080（前 5 秒，縮小）</sub></p>
+
+| 工作（A100 40 GB） | 時間 | 輸出 |
+|---|---:|---|
+| HQ Omni 5 秒生成 | 328 秒 | 1344×768 |
+| 臉部修復（動漫） | 228 秒 | 1344×768 |
+| 臉部修復 + SeedVR2 3B INT8 1080p | 219 秒 + 462 秒（UI 共 11分37秒） | 1890×1080 |
+| SeedVR2 7B FP16 1080p | 未記錄 | 1890×1080 |
+| HQ Omni 10 秒（573 秒）+ 臉部 + 1080p | 臉部完成；**1080p 階段 runtime 崩潰** | - |
+
+40 GB A100 上，1080p 後製請控制在約 5 秒的片段，或改用 80 GB GPU。
+
+## 多張參考圖
+
+按「+ 新增參考圖」最多可放 9 張，第 N 張對應提示詞裡的 `<Picture N>`（從 1 開始、連號）。用《反派擺爛指南》兩個鏡頭實測，各 3 張參考圖、HQ Omni 1344×768、10 秒，兩支合計約 2 CU：
+
+<table><tr>
+<td align="center" width="50%"><img src="assets/gifs/multiref-c14.gif" alt="C14 3 張參考圖"><br><sub>C14 · 3 張參考圖 · 9分53秒（冷啟動）</sub></td>
+<td align="center" width="50%"><img src="assets/gifs/multiref-c06.gif" alt="C06 3 張參考圖"><br><sub>C06 · 3 張參考圖 · 8分10秒</sub></td>
+</tr></table>
+
 ## 在 Colab A100（40 GB）上的實測
 
 第一輪：7 支渲染，從全新虛擬機算起共 **7.03 個運算單位**（376.67 → 369.64），平均約 4.8 CU／小時。第二輪（用原始參考圖重跑）：2 支渲染，2.21 個運算單位。完整表格、方法與但書見 [`docs/benchmarks.md`](docs/benchmarks.md)。第三、四輪（未蒸餾對照組）見 [benchmarks](docs/benchmarks.md#control-runs-non-distilled-ref2va-r1-single-pass-r2-draft--second-sampling)。

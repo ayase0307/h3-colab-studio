@@ -211,6 +211,31 @@ The reference images of Kai and Vex are not in the repo (they follow a public Se
 - **高清 15 秒**在 40 GB 卡上會爆顯存：請改用 A100 80GB（可選「未量化」），或切成每段 ≤10 秒再接起來。
 - A100 不支援 FP4，**不要選 NVFP4 文字編碼器**。
 
+## 6c. Ultra-quality post-processing (branch `feat/ultra-quality`, 2026-10-24)
+
+Tick `download_facerefine` and/or `download_seedvr2` in cell ①, then use 「極致畫質後製（生成後另跑）」 or the history 「後製」 button. Outputs: `video_face.mp4`, `video_1080p.mp4`, `video_face_1080p.mp4`.
+
+<p align="center"><img src="../assets/gifs/ultra-face-1080p.gif" alt="HQ Omni 5 s + face refine + SeedVR2 1080p" width="480"><br><sub>HQ Omni 5 s → face refine (anime) → SeedVR2 3B 1890×1080 (first 5 s, scaled down)</sub></p>
+
+| Job (A100 40 GB) | Time | Output |
+|---|---:|---|
+| HQ Omni 5 s generation | 328 s | 1344×768 |
+| Face refine (anime) | 228 s | 1344×768 |
+| Face refine + SeedVR2 3B INT8 1080p | 219 s + 462 s (UI 11m37s) | 1890×1080 |
+| SeedVR2 7B FP16 1080p | not recorded | 1890×1080 |
+| HQ Omni 10 s (573 s) + face + 1080p | face OK; **runtime died in the 1080p pass** | - |
+
+On a 40 GB A100, keep the 1080p pass to clips of about 5 s, or use an 80 GB GPU.
+
+## 6d. Multiple reference images
+
+Click 「+ 新增參考圖」 to add up to 9 references; image N maps to `<Picture N>` in the prompt (numbering starts at 1, contiguous). Tested with two 反派擺爛指南 shots, 3 refs each, HQ Omni 1344×768, 10 s, about 2 CU for both:
+
+<table><tr>
+<td align="center" width="50%"><img src="../assets/gifs/multiref-c14.gif" alt="C14 3 refs"><br><sub>C14 · 3 refs · 9m53s (cold)</sub></td>
+<td align="center" width="50%"><img src="../assets/gifs/multiref-c06.gif" alt="C06 3 refs"><br><sub>C06 · 3 refs · 8m10s</sub></td>
+</tr></table>
+
 ## 7. Not measured
 
 - A second seed for any cell; other character pairs; real-world (non-anime) subjects.
