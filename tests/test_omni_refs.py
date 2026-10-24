@@ -56,3 +56,12 @@ pre = m.clean_config({"prompt": "<Picture 1> x", "mode": "omni"}, need_refs=Fals
 m.comfy_runner(dict(pre), imgs)
 assert rec["cfg"]["mode"] == "omni" and rec["cfg"]["refs"] == ["h3ref_up1.png", "h3ref_up2.png"], rec
 print("omni2 OK")
+
+# --- UI multi-ref: 9 slots accepted, gaps rejected, refs win over first/last ---
+for i in range(1, 10): (m.COMFY / "input" / f"h3ref_{i}.png").write_bytes(b"x")
+c9 = m.clean_config({"prompt": "x", "mode": "omni", **{f"ref_{i}": f"h3ref_{i}.png" for i in range(1, 10)}})
+assert c9["refs"] == [f"h3ref_{i}.png" for i in range(1, 10)]
+assert m.clean_config({"prompt": "x", "mode": "omni", "first_frame": "h3ref_c.png", "ref_1": "h3ref_a.png"})["refs"] == ["h3ref_a.png"]
+try: m.clean_config({"prompt": "x", "mode": "omni", "ref_1": "h3ref_a.png", "ref_3": "h3ref_c.png"}); raise SystemExit("gap accepted")
+except ValueError: pass
+print("omni multiref OK")
