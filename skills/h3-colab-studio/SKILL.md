@@ -47,7 +47,7 @@ Click 「+ 新增參考圖」 (up to 9). Image N = `<Picture N>` in the prompt; 
 - ALWAYS finish with Runtime > Disconnect and delete runtime, or CUs keep draining.
 
 - Panel length options are only 8.000 s ("約 8 秒") and 10.125 s ("約 10 秒"), with nothing in between. Plan segments as 8 s or 10.125 s, because an 8.7 s plan gets cut to 8 s.
-- Production run 2026-10-25 (HQ Omni, 3–5 refs): 8 s took 5m38s–6m18s and 10.125 s took about 8m11s. The runtime died twice, both on 10.125 s segments with 3 refs, about 4–5 min in. If that happens, re-run cell ① and retry; it worked both times. Keep panel batches short, because two long automated batches were interrupted. See docs/benchmarks.md §6e.
+- Production run 2026-10-25 (HQ Omni, 3–5 refs): 8 s took 5m38s–6m18s (3 runs) and 10.125 s took about 8m11s. The runtime died twice, both on 10.125 s segments with 3 refs, about 4–5 min in. If that happens, re-run cell ① and retry; it worked both times. Keep panel batches short, because two long automated batches were interrupted. See docs/benchmarks.md §6e.
 - Chinese prompts: paste from a server that sends a UTF-8 header so the text does not come through garbled. Keep prompts under 7,000 chars.
 
 ## Two ways to drive it

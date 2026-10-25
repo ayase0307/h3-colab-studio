@@ -259,16 +259,18 @@ A private practice project, run through the panel on Colab Pro, A100 40 GB High-
 | S05-d | v1 | 10.125 | 3 | 8m11s | 3248926010 | 4.1 | 15:20 | 1st try: runtime died at 4m45s; succeeded after re-running cell ① |
 | S02-b | v3 | 8.0 | 5 | 6m18s | 1240586361 | 5.3 | 15:34 | planned 8.708 s, cut to 8 s; prompt 6,328 chars |
 | S03-e | v3 | 10.125 | 3 | 8m11s | 4183478353 | 5.0 | 15:56 | 1st try: runtime died (JS "reading 'data'"); succeeded after re-running cell ① |
-| S05-e | v3 | 8.0 | 3 | pending | | | | still running when this was written |
+| S05-e | v3 | 8.0 | 3 | 5m44s | 879544197 | 4.5 | ? | succeeded first try; prompt 4,382 chars |
+
+**Totals.** 18 segments: 10 at 8 s and 8 at 10.125 s. Generation time was recorded for 5 of them: 8 s took 5m38s–6m18s and 10.125 s took 8m11s.
 
 **Panel duration limit.** The panel offers only two lengths: "about 8 s" = 8.000 s and "about 10 s" = 10.125 s. There is nothing in between, so a planned 8.7 s segment comes out as 8 s.
 
 **Stability events**
 - The automated browser batch was interrupted twice (around 13:2x and 14:0x–14:5x UTC+8). Nothing new came out for about 50 minutes.
-- The runtime died twice. Both times it was a 10.125 s segment with 3 references, about 4–5 minutes into generation. Re-running cell ① finished almost at once, and the second attempt worked both times. No 8 s segment died.
+- The runtime died twice. Both times it was a 10.125 s segment with 3 references, about 4–5 minutes into generation. Re-running cell ① finished almost at once, and the second attempt worked both times. No 8 s segment ever had its runtime die.
 - Unproven guess: 10 s puts more memory or connection pressure on the session.
 
-**Inputs.** Prompts ran 5,170–6,328 characters, under the 7,000 limit. The panel trims trailing whitespace on submit. Chinese prompts had to be pasted from an HTTP server that sends a UTF-8 header, or they came through garbled.
+**Inputs.** Prompts ran 4,382–6,328 characters, under the 7,000 limit. The panel trims trailing whitespace on submit. Chinese prompts had to be pasted from an HTTP server that sends a UTF-8 header, or they came through garbled.
 
 ## 7. Not measured
 
