@@ -46,6 +46,10 @@ Click 「+ 新增參考圖」 (up to 9). Image N = `<Picture N>` in the prompt; 
 - Batch jobs in one session to reuse the warm model.
 - ALWAYS finish with Runtime > Disconnect and delete runtime, or CUs keep draining.
 
+- Panel length options are only 8.000 s ("約 8 秒") and 10.125 s ("約 10 秒"), with nothing in between. Plan segments as 8 s or 10.125 s, because an 8.7 s plan gets cut to 8 s.
+- Production run 2026-10-25 (HQ Omni, 3–5 refs): 8 s took 5m38s–6m18s and 10.125 s took about 8m11s. The runtime died twice, both on 10.125 s segments with 3 refs, about 4–5 min in. If that happens, re-run cell ① and retry; it worked both times. Keep panel batches short, because two long automated batches were interrupted. See docs/benchmarks.md §6e.
+- Chinese prompts: paste from a server that sends a UTF-8 header so the text does not come through garbled. Keep prompts under 7,000 chars.
+
 ## Two ways to drive it
 1. UI mode: open notebook, run cells, use the in-notebook panel, download with 「儲存 MP4」. Needs the user's Google account signed in to the browser.
 2. Agent (queue) mode: no public tunnel. Run the notebook's agent-mode cell; it polls Google Drive `My Drive/h3-queue/{inbox,running,done,failed}` + heartbeat.json. Submit with `skills/h3-colab-studio/scripts/h3q.py` (or write `<id>.json` + `<id>.ref_N.png` into inbox, images first, JSON last). Spec: docs/agent-protocol.md.

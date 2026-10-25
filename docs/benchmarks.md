@@ -236,6 +236,40 @@ Click 「+ 新增參考圖」 to add up to 9 references; image N maps to `<Pictu
 <td align="center" width="50%"><img src="../assets/gifs/multiref-c06.gif" alt="C06 3 refs"><br><sub>C06 · 3 refs · 8m10s</sub></td>
 </tr></table>
 
+## 6e. Real production run (2026-10-25)
+
+A private practice project, run through the panel on Colab Pro, A100 40 GB High-RAM. INT8 model + INT8 text encoder, `download_omni` on. Omni reference mode, 8 steps, 1344×768 at 24 fps, seed -1 (random). Durations are from ffprobe. Save time is when the file was saved, in UTC+8. A `?` means the value was not recorded at the time and is left blank on purpose. Segment ids are neutral labels.
+
+| Segment | Ver | Length (s) | Refs | Gen time | Seed | Size (MB) | Saved (UTC+8) | Note |
+|---|---|---|---|---|---|---|---|---|
+| S01-a | v1 | 8.0 | 3 | ? | 1423860569 | 3.3 | 02:19 | |
+| S01-a | v2 | 8.0 | 3 | ? | 2349901378 | 4.1 | 11:34 | |
+| S02-a | v1 | 10.125 | 2 | ? | 1203730483 | 7.8 | 11:46 | |
+| S02-b | v1 | 8.0 | 5 | ? | 994035382 | 5.2 | 11:54 | |
+| S03-a | v1 | 10.125 | ? | ? | 2071189144 | 4.2 | 12:03 | |
+| S03-b | v1 | 10.125 | ? | ? | 85231621 | 5.0 | 12:12 | |
+| S03-c | v1 | 8.0 | ? | ? | 421051252 | 3.9 | 12:24 | |
+| S03-d | v1 | 8.0 | ? | ? | 2572695015 | 4.4 | 12:33 | |
+| S04 | v1 | 8.0 | ? | ? | 1780919718 | 10.3 | 12:45 | |
+| S05-a | v1 | 10.125 | ? | ? | 2843480867 | 5.5 | 12:55 | |
+| S05-c | v1 | 8.0 | ? | ? | 3949099252 | 2.8 | 13:22 | |
+| S01-a | v3 | 8.0 | 3 | ? | 616710231 | 3.8 | 13:56 | |
+| S02-a | v3 | 10.125 | 2 | ? | 844831630 | 7.0 | 14:05 | |
+| S05-b | v1 | 8.0 | 3 | 5m38s | 3027239639 | 4.6 | 14:59 | recovered after a batch interruption |
+| S05-d | v1 | 10.125 | 3 | 8m11s | 3248926010 | 4.1 | 15:20 | 1st try: runtime died at 4m45s; succeeded after re-running cell ① |
+| S02-b | v3 | 8.0 | 5 | 6m18s | 1240586361 | 5.3 | 15:34 | planned 8.708 s, cut to 8 s; prompt 6,328 chars |
+| S03-e | v3 | 10.125 | 3 | 8m11s | 4183478353 | 5.0 | 15:56 | 1st try: runtime died (JS "reading 'data'"); succeeded after re-running cell ① |
+| S05-e | v3 | 8.0 | 3 | pending | | | | still running when this was written |
+
+**Panel duration limit.** The panel offers only two lengths: "about 8 s" = 8.000 s and "about 10 s" = 10.125 s. There is nothing in between, so a planned 8.7 s segment comes out as 8 s.
+
+**Stability events**
+- The automated browser batch was interrupted twice (around 13:2x and 14:0x–14:5x UTC+8). Nothing new came out for about 50 minutes.
+- The runtime died twice. Both times it was a 10.125 s segment with 3 references, about 4–5 minutes into generation. Re-running cell ① finished almost at once, and the second attempt worked both times. No 8 s segment died.
+- Unproven guess: 10 s puts more memory or connection pressure on the session.
+
+**Inputs.** Prompts ran 5,170–6,328 characters, under the 7,000 limit. The panel trims trailing whitespace on submit. Chinese prompts had to be pasted from an HTTP server that sends a UTF-8 header, or they came through garbled.
+
 ## 7. Not measured
 
 - A second seed for any cell; other character pairs; real-world (non-anime) subjects.
